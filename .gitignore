@@ -1,0 +1,15 @@
+.cache
+.config*
+
+config.h
+*.s
+*.o
+*.d
+
+run/perf.data*
+run/perf.svg
+run/FRNSHEAAN*
+
+result/
+
+__pycache__/

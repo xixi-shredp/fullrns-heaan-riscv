@@ -43,9 +43,7 @@ all: libFRNSHEAAN.a
 # Tool invocations
 libFRNSHEAAN.a: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
-	@echo 'Invoking: GCC Archiver'
 	ar -r  "libFRNSHEAAN.a" $(OBJS) $(USER_OBJS) $(LIBS)
-	@echo 'Finished building target: $@'
 	@echo ' '
 
 # Other Targets

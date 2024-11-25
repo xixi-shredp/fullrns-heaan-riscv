@@ -1,0 +1,97 @@
+mainmenu "FullRNS-HENNA Configuration Menu"
+
+choice
+  prompt "Running Platform"
+  default NATIVE
+config NATIVE
+  bool "native"
+config XUANTIE_RISCV
+  bool "XuanTie-Riscv"
+config GEM5_RISCV
+  bool "Gem5-Riscv"
+config QEMU_RISCV
+  bool "Qemu-Riscv"
+endchoice
+
+config ARCH
+  string
+  default "gem5-riscv64" if GEM5_RISCV
+  default "xuantie-riscv64" if XUANTIE_RISCV
+  default "qemu-riscv64" if QEMU_RISCV
+  default "native" if NATIVE
+  default "native"
+
+config CROSS_COMPILER
+  string
+  default "/opt/riscv/fhe-toolchain/bin/riscv64-unknown-linux-gnu-" if GEM5_RISCV
+  default "riscv64-linux-gnu-" if QEMU_RISCV
+  default "/opt/xuantie/current/bin/riscv64-unknown-linux-gnu-" if XUANTIE_RISCV
+  default "" if NATIVE
+  default ""
+
+if GEM5_RISCV
+config FHE_EXT
+  bool "Enable FHE Extension"
+endif
+
+
+choice
+  prompt "NTT/INTT ModMul Choice"
+  default NTT_MONTGOMENY
+config NTT_BARRETT
+  bool "Barrett"
+config NTT_MONTGOMENY
+  bool "Montgomeny"
+endchoice
+
+config STEP4_NTT
+  bool "Enbale Step-4 NTT Optimization"
+  default n
+
+choice
+  prompt "Matrix Transposion Choice"
+  default BLOCKED_MT
+  depends on STEP4_NTT
+config SIMPLE_MT
+  bool "simple common mt"
+config BLOCKED_MT
+  bool "blocked mt"
+config DEP_MT
+  bool "deposion-based mt"
+config TRIP_MT
+  bool "trip mt"
+endchoice
+
+config BIGPAGE
+  bool "Enbale Big Page ( 2MB ) Optimization"
+  default n
+
+config RVV
+  depends on (XUANTIE_RISCV || GEM5_RISCV || QEMU_RISCV)
+  bool "Enbale RVV Optimization"
+  default n
+
+if RVV
+
+choice
+  prompt "RVV Version"
+  default RVV0P7 if XUANTIE_RISCV
+  default RVV1P0
+config RVV0P7
+  bool "0.7"
+config RVV1P0
+  bool "1.0"
+endchoice
+
+config AUTO_VECTORIZE
+  depends on RVV1P0 && (GEM5_RISCV || QEMU_RISCV)
+  bool "Enbale Auto Vectorize (Only For RVV1.0)"
+  default n
+
+endif
+
+menu "Build Options"
+config DEBUG_MSG
+  bool "Enable -g Option"
+  default n
+endmenu

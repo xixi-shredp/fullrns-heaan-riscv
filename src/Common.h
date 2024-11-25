@@ -17,5 +17,18 @@
 #include <sys/time.h>
 #include <string>
 #include <math.h>
+# define M_PI		3.14159265358979323846	/* pi */
+
+#include "../config.h"
+
+#ifdef CONFIG_RVV
+#include <riscv_vector.h>
+#endif
+
+#ifdef CONFIG_FHE_EXT
+#include "FHEUtil.h"
+#endif
+
+void *big_page_alloc(size_t size);
 
 #endif

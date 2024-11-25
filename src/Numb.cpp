@@ -45,7 +45,6 @@ void modBarrett(uint64_t &r, uint64_t a, uint64_t m, uint64_t mr, long twok) {
 		r -= m;
 		return;
 	}
-
 }
 
 void modBarrett(uint64_t &r, unsigned __int128 a, uint64_t m, uint64_t mr, long twok) {
