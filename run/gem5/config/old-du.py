@@ -3,12 +3,6 @@ from m5.objects import *
 from m5.params import *
 from m5.SimObject import SimObject
 
-class BJU(FUDesc):
-    opList = [
-        OpDesc(opClass="Branch"),
-    ]
-    count = 1
-
 class IntALUMult(FUDesc):
     opList = [
         OpDesc(opClass="IntAlu"),
@@ -23,36 +17,36 @@ class IntALUDiv(FUDesc):
     ]
     count = 1
 
-class MulMod(FUDesc):
+class FHEMod(FUDesc):
     opList = [
-        OpDesc(opClass="FHEMontMulMod", opLat=11),
-        OpDesc(opClass="FHEBarMulMod", opLat=8),
+        OpDesc(opClass="FHEAddMod", opLat=2),
+        OpDesc(opClass="FHEMulMod", opLat=8),
     ]
     count = 1
-class AddMod(FUDesc):
-    opList = [
-        OpDesc(opClass="FHEMod", opLat=1),
-        OpDesc(opClass="FHEAddMod", opLat=2),
-    ]
-    count = 2
 
 
-class VFPU(FUDesc):
+class FP_ALU(FUDesc):
     opList = [
-        # float
         OpDesc(opClass="FloatAdd", opLat=2),
         OpDesc(opClass="FloatCmp", opLat=2),
         OpDesc(opClass="FloatCvt", opLat=2),
+    ]
+    count = 1
+
+
+class FP_MultDiv(FUDesc):
+    opList = [
         OpDesc(opClass="FloatMult", opLat=4),
         OpDesc(opClass="FloatMultAcc", opLat=5),
         OpDesc(opClass="FloatMisc", opLat=3),
         OpDesc(opClass="FloatDiv", opLat=12, pipelined=False),
         OpDesc(opClass="FloatSqrt", opLat=24, pipelined=False),
-        # Simd FHE 
-        OpDesc(opClass="SimdFHEMod", opLat=5),
-        OpDesc(opClass="SimdFHEMontMulMod", opLat=14),
-        OpDesc(opClass="SimdFHEBarMulMod", opLat=11),
-        # Simd
+    ]
+    count = 1
+
+
+class SIMD_Unit(FUDesc):
+    opList = [
         OpDesc(opClass="SimdAdd", opLat=4),
         OpDesc(opClass="SimdAddAcc", opLat=4),
         OpDesc(opClass="SimdAlu", opLat=4),
@@ -88,13 +82,12 @@ class VFPU(FUDesc):
     count = 2
 
 
-
 # class PredALU(FUDesc):
 #     opList = [OpDesc(opClass="SimdPredAlu")]
 #     count = 1
 
 
-class LoadPipe(FUDesc):
+class ReadPort(FUDesc):
     opList = [
         OpDesc(opClass="MemRead"),
         OpDesc(opClass="FloatMemRead"),
@@ -107,7 +100,7 @@ class LoadPipe(FUDesc):
     ]
     count = 1
 
-class StorePipe(FUDesc):
+class WritePort(FUDesc):
     opList = [
         OpDesc(opClass="MemWrite"),
         OpDesc(opClass="FloatMemWrite"),
@@ -125,13 +118,13 @@ class StorePipe(FUDesc):
 
 class C910FUPool(FUPool):
     FUList = [
-        LoadPipe(),
-        StorePipe(),
-        BJU(),
         IntALUMult(),
         IntALUDiv(),
-        MulMod(),
-        AddMod(),
-        VFPU(),
+        FHEMod(),
+        FP_ALU(),
+        FP_MultDiv(),
+        ReadPort(),
+        SIMD_Unit(),
+        WritePort(),
     ]
 

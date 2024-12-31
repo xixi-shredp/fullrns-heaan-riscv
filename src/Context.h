@@ -115,7 +115,7 @@ public:
   uint64_t *pccoeff;
   uint64_t *p2hcoeff;
 
-#ifdef CONFIG_STEP4_NTT
+  // For STEP4_NTT
   long N1;
   long N2;
   long logN1;
@@ -124,6 +124,7 @@ public:
   uint64_t **qRootAllPows;
   // uint64_t*** wmatrix_scalepows;
   uint64_t **wmatrix_scalepows;
+  uint64_t **wmatrix_pows;
 
   uint64_t *s4ntt_row_qRoots;
   uint64_t *s4ntt_col_qRoots;
@@ -131,21 +132,34 @@ public:
   uint64_t **s4ntt_col_qRootPows;
   uint64_t **s4ntt_row_qRootScalePows;
   uint64_t **s4ntt_col_qRootScalePows;
-  void step4_qiNTTAndEqual(uint64_t *a, long index);
+  void step4_qiNTTAndEqual_withBar(uint64_t *a, long index);
+  void step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
 
-#ifdef CONFIG_NTT_BARRETT
   uint64_t **s4ntt_rowBarPres;
   uint64_t **s4ntt_colBarPres;
   uint64_t **s4ntt_wmatrixBarPres;
-#endif
   uint64_t **nttBarPres;
+  //
+
+  void origin_qiNTTAndEqual_withBar(uint64_t *a, long index);
+  void origin_qiNTTAndEqual_withMont(uint64_t *a, long index);
+  void ref_qiNTTAndEqual(uint64_t *a, long index);
+#ifdef CONFIG_RVV
+  void rvv_ori_qiNTTAndEqual_withBar(uint64_t *a, long index);
+  void rvv_ori_qiNTTAndEqual_withMont(uint64_t *a, long index);
+  void rvv_step4_qiNTTAndEqual_withBar(uint64_t *a, long index);
+  void rvv_step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
+  void rvv_ext_step4_qiNTTAndEqual_withBar(uint64_t *a, long index);
+  void rvv_ext_step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
+  void rvv_ext_ori_qiNTTAndEqual_withBar(uint64_t *a, long index);
+  void rvv_ext_ori_qiNTTAndEqual_withMont(uint64_t *a, long index);
 #endif
 
-#ifdef CONFIG_RVV
-  void rvv_step4_qiNTTAndEqual(uint64_t *a, long index);
-#endif
 #ifdef CONFIG_FHE_EXT
-  void fhe_qiNTTAndEqual(uint64_t *a, long index);
+  void ext_step4_qiNTTAndEqual_withBar(uint64_t *a, long index);
+  void ext_step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
+  void ext_qiNTTAndEqual_withBar(uint64_t *a, long index);
+  void ext_qiNTTAndEqual_withMont(uint64_t *a, long index);
 #endif
 
   Context(long logN, long logp, long L, long K, long h = 64,
@@ -181,8 +195,6 @@ public:
 
   void qiNTTAndEqual(uint64_t *a, long index);
   void piNTTAndEqual(uint64_t *a, long index);
-  void origin_qiNTTAndEqual(uint64_t *a, long index);
-  void ref_qiNTTAndEqual(uint64_t *a, long index);
 
   void NTTAndEqual(uint64_t *a, long l, long k = 0);
 

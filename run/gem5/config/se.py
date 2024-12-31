@@ -51,6 +51,7 @@ from m5.util import (
 )
 
 from gem5.isas import ISA
+from cpu import c910CPUConfig
 
 addToPath("/opt/gem5/configs")
 
@@ -66,8 +67,6 @@ from common.Caches import *
 from common.cpu2000 import *
 from common.FileSystemConfig import config_filesystem
 from ruby import Ruby
-
-from funcUnit import C910FUPool
 
 
 def get_processes(args):
@@ -131,7 +130,6 @@ if "--ruby" in sys.argv:
     Ruby.define_options(parser)
 
 args = parser.parse_args()
-
 multiprocesses = []
 numThreads = 1
 
@@ -209,51 +207,11 @@ system.cpu_clk_domain = SrcClockDomain(
 if args.elastic_trace_en:
     CpuConfig.config_etrace(CPUClass, system.cpu, args)
 
-from m5.objects.ReplacementPolicies import *
 # All cpus belong to a common cpu_clk_domain, therefore running at a common
 # frequency.
 for cpu in system.cpu:
     cpu.clk_domain = system.cpu_clk_domain
-    cpu.fetchWidth = 8
-    cpu.fetchQueueSize = 1  # Unknown (Guess Value)
-    cpu.decodeWidth = 3
-    cpu.renameWidth = 3
-    cpu.dispatchWidth = 8
-    cpu.issueWidth = 8
-    cpu.commitWidth = 3
-
-    cpu.fuPool = C910FUPool()
-
-    # cpu.numPhysIntRegs = 
-    cpu.numROBEntries = 192
-
-    bpu = cpu.branchPred
-    # WARN: BHT Total Size is 64Kb,
-    # but the individual inter-sections' size is not known.
-    bpu.globalPredictorSize = 16384
-    bpu.globalCtrBits = 2
-    bpu.choicePredictorSize = 16384
-    bpu.choiceCtrBits = 2
-    # FIXME: c910 has also LoopBuffer, which need to be configured.
-    # WARN: c910 use 2-level btb, but only SimpleBTB is acquired now.
-    # Also the tagBits and instShiftAmt is not known.
-    bpu.btb.numEntries = 1024
-    bpu.ras.numEntries = 12
-    # WARN: no enough message for IndirectBranchPred in C910.
-    # indirectBranchPred:
-    
-    icache = cpu.icache_port
-    icache.assoc = 2
-    icache.size = 65536
-    icache.replacement_policy = FIFORP()
-
-    dcache = cpu.dcache_port
-    dcache.assoc = 2
-    dcache.size = 65536
-    dcache.replacement_policy = FIFORP()
-
-    # mmu = cpu.mmu
-    # mmu.dtb
+    cpu.isa = RiscvISA(vlen=128)
 
 # Sanity check
 if args.simpoint_profile:
@@ -275,6 +233,10 @@ for i in range(np):
 
     if args.checker:
         system.cpu[i].addCheckerCpu()
+
+    if args.bp_type:
+        bpClass = ObjectList.bp_list.get(args.bp_type)
+        system.cpu[i].branchPred = bpClass()
 
     if args.indirect_bp_type:
         indirectBPClass = ObjectList.indirect_bp_list.get(args.indirect_bp_type)
@@ -311,6 +273,15 @@ system.workload = SEWorkload.init_compatible(mp0_path)
 
 if args.wait_gdb:
     system.workload.wait_for_remote_gdb = True
+
+for cpu in system.cpu:
+    c910CPUConfig(cpu)
+
+l2cache = system.l2
+l2cache.assoc = 16
+l2cache.size = "1MB"
+l2cache.tag_latency = 5
+l2cache.data_latency = 8
 
 root = Root(full_system=False, system=system)
 Simulation.run(args, root, system, FutureClass)

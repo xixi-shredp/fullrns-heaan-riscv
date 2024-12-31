@@ -6,9 +6,11 @@ config.h
 *.o
 *.d
 
-run/perf.data*
-run/perf.svg
-run/FRNSHEAAN*
+/run/perf.data*
+/run/perf.svg
+/run/FRNSHEAAN*
+/run/compile_commands.json
+/run/pthread-case/
 
 result/
 

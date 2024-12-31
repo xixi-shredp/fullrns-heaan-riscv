@@ -22,11 +22,18 @@
 #include "../config.h"
 
 #ifdef CONFIG_RVV
-#include <riscv_vector.h>
+// #include <riscv_vector.h>
 #endif
 
 #ifdef CONFIG_FHE_EXT
-#include "FHEUtil.h"
+#include "ExtUtil.h"
+#endif
+
+#ifdef CONFIG_GEM5_RISCV
+    #include <gem5/m5ops.h>
+    #define STAT_RESET m5_dump_reset_stats(0, 0)
+#else
+    #define STAT_RESET
 #endif
 
 void *big_page_alloc(size_t size);

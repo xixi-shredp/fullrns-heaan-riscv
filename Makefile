@@ -3,38 +3,15 @@ CONFIG_H   = ./config.h
 include ./scripts/config.mk
 include ./scripts/filelist.mk
 
-NTT_ALGO = barrett
-ifeq ($(CONFIG_NTT_BARRETT),)
-NTT_ALGO = montgomeny
-endif
+RESULT_DIR = ./result
 
-EXT = _fhe
-ifeq ($(CONFIG_FHE_EXT),)
-EXT =
-endif
+TEST_LOGN ?= 16
+TEST_CASE ?= ori_bar
 
-RVV = _rvv
-ifeq ($(CONFIG_RVV),)
-RVV =
-endif
-
-# ALL Test Cases
-TEST_LOGNS  = 14 15 16
-RESULT_DIR  = $(patsubst %,./result/$(ARCH)/%,$(TEST_LOGNS))
-
-# Default Test Case
-TEST_LOGN   ?= 11
-RESULT_FILE ?= ./result/$(ARCH)/$(TEST_LOGN)/$(NTT_ALGO)$(RVV)$(EXT).out
-$(shell mkdir -p ./result/$(ARCH)/$(TEST_LOGN))
-
-all: $(RESULT_DIR)
-
-
-$(RESULT_DIR):
-	$(shell mkdir -p $@)
-	make run RESULT_FILE="$@/$(NTT_ALGO)$(RVV)$(EXT).out" TEST_LOGN=$(notdir $@)
-
-
+# Test Case
+TEST_OPTION ?= --check --logN $(TEST_LOGN) --case $(TEST_CASE)
+RESULT_FILE ?= $(RESULT_DIR)/$(ARCH)-noxt/$(TEST_LOGN)/$(TEST_CASE).out
+$(shell mkdir -p ./result/$(ARCH)-noxt/$(TEST_LOGN))
 
 include ./scripts/build.mk
 

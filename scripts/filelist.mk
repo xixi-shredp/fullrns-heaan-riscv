@@ -21,8 +21,9 @@ lib: $(TARGET_LIB)
 
 
 BIN = ./run/FRNSHEAAN-$(ARCH)
+RUN_CPP = ./run/main-opt.cpp ./run/test_case.cpp
 
-$(BIN): ./run/main.cpp $(TARGET_LIB)
+$(BIN): $(RUN_CPP) $(TARGET_LIB)
 	@echo '  [CXX] $< -> $@'
 	@$(CXX) -std=c++11 $(CXXFLAGS) -pthread -o $@ $^ -I./src/ $(LDFLAGS)
 	@echo ' '

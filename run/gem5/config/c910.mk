@@ -23,12 +23,13 @@ CACHE_FLAGS = --caches \
 							$(L2CACHE_FLAGS) \
 							--cacheline_size 64
 
+BP_FLAGS = --bp-type C910BiModeBP
+
 MEM_FLAGS = --mem-type DDR5_8400_4x8 \
-						--mem-size 4GB
+						--mem-size 7715MB
 
 SE_FLAGS += -n 4 --sys-voltage 0.8 \
 						--sys-clock $(SYS_CLOCK) \
 						--cpu-clock $(CPU_CLOCK) \
-						$(CACHE_FLAGS) \
 						--cpu-type RiscvO3CPU \
-						$(CONFIG_PARAM)
+						$(BP_FLAGS) $(CACHE_FLAGS) $(MEM_FLAGS)

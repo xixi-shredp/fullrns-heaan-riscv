@@ -5,6 +5,11 @@
 #include "utils.h"
 
 #ifdef CONFIG_RVV
+#ifdef CONFIG_XUANTIE_RISCV
+  #define CONFIG_RVV0P7
+#else
+  #define CONFIG_RVV1P0
+#endif
 
 #define vsetvli(vl, sew, mul)                                                  \
   ({                                                                           \
@@ -68,6 +73,35 @@
     }                                                                          \
   }
 
-#endif
+class RVVUtil {
+public:
+  int vl;
+  int lmul;
+  RVVUtil(int lmul) : lmul(lmul) {
+    switch (lmul) {
+    case 1:
+      vl = vsetvli(-1, 64, 1);
+      break;
+    case 2:
+      vl = vsetvli(-1, 64, 2);
+      break;
+    case 4:
+      vl = vsetvli(-1, 64, 4);
+      break;
+    case 8:
+      vl = vsetvli(-1, 64, 8);
+      break;
+    default:
+      fprintf(stderr, "[error] invalid lmul %d.\n", lmul);
+      exit(1);
+    }
+    if (vl != 2 * lmul) {
+      printf("[error]: vl != 2*lmul \n");
+      exit(1);
+    }
+  }
+};
 
-#endif
+#endif // CONFIG_RVV
+
+#endif //__RVVUTIL_HH__

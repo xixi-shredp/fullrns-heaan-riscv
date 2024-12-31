@@ -24,7 +24,7 @@ config ARCH
 config CROSS_COMPILER
   string
   default "/opt/riscv/fhe-toolchain/bin/riscv64-unknown-linux-gnu-" if GEM5_RISCV
-  default "riscv64-linux-gnu-" if QEMU_RISCV
+  default "riscv64-unknown-linux-gnu-" if QEMU_RISCV
   default "/opt/xuantie/current/bin/riscv64-unknown-linux-gnu-" if XUANTIE_RISCV
   default "" if NATIVE
   default ""
@@ -32,21 +32,9 @@ config CROSS_COMPILER
 if GEM5_RISCV
 config FHE_EXT
   bool "Enable FHE Extension"
+  default y
 endif
 
-
-choice
-  prompt "NTT/INTT ModMul Choice"
-  default NTT_MONTGOMENY
-config NTT_BARRETT
-  bool "Barrett"
-config NTT_MONTGOMENY
-  bool "Montgomeny"
-endchoice
-
-config STEP4_NTT
-  bool "Enbale Step-4 NTT Optimization"
-  default n
 
 choice
   prompt "Matrix Transposion Choice"
@@ -71,27 +59,35 @@ config RVV
   bool "Enbale RVV Optimization"
   default n
 
-if RVV
+# if RVV
+#
+# choice
+#   prompt "RVV Version"
+#   default RVV0P7 if XUANTIE_RISCV
+#   default RVV1P0
+# config RVV0P7
+#   bool "0.7"
+# config RVV1P0
+#   bool "1.0"
+# endchoice
 
-choice
-  prompt "RVV Version"
-  default RVV0P7 if XUANTIE_RISCV
-  default RVV1P0
-config RVV0P7
-  bool "0.7"
-config RVV1P0
-  bool "1.0"
-endchoice
-
-config AUTO_VECTORIZE
-  depends on RVV1P0 && (GEM5_RISCV || QEMU_RISCV)
-  bool "Enbale Auto Vectorize (Only For RVV1.0)"
-  default n
-
-endif
+# config AUTO_VECTORIZE
+#   depends on RVV1P0 && (GEM5_RISCV || QEMU_RISCV)
+#   bool "Enbale Auto Vectorize (Only For RVV1.0)"
+#   default n
+#
+# endif
 
 menu "Build Options"
 config DEBUG_MSG
   bool "Enable -g Option"
   default n
 endmenu
+
+config OP_RECORD
+  bool "Enbale Opearation Recorder"
+  default n
+
+config OP_RECORDER_PATH
+  string "path to OpRecorder Result"
+  default "./result/op_record/op_recorder.out"
