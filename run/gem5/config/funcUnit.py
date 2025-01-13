@@ -25,8 +25,8 @@ class IntALUDiv(FUDesc):
 
 class MulMod(FUDesc):
     opList = [
-        OpDesc(opClass="FHEMontMulMod", opLat=11),
-        OpDesc(opClass="FHEBarMulMod", opLat=8),
+        OpDesc(opClass="FHEMontMulMod", opLat=8),
+        OpDesc(opClass="FHEBarMulMod", opLat=6),
     ]
     count = 1
 class AddMod(FUDesc):
@@ -50,8 +50,8 @@ class VFPU(FUDesc):
         OpDesc(opClass="FloatSqrt", opLat=24, pipelined=False),
         # Simd FHE 
         OpDesc(opClass="SimdFHEMod", opLat=5),
-        OpDesc(opClass="SimdFHEMontMulMod", opLat=14),
-        OpDesc(opClass="SimdFHEBarMulMod", opLat=11),
+        OpDesc(opClass="SimdFHEMontMulMod", opLat=11),
+        OpDesc(opClass="SimdFHEBarMulMod", opLat=9),
         # Simd
         OpDesc(opClass="SimdAdd", opLat=4),
         OpDesc(opClass="SimdAddAcc", opLat=4),

@@ -42,11 +42,11 @@ class MyTask(TaskThread):
     step: bool
     args = {
         "arch": ["gem5-riscv64"],
-        "logN": [16],
+        "logN": [11, 12, 13, 14, 15, 16],
         "bar": [True, False],
         "rvv": [False],
-        "step": [False],
-        "ext": [True],
+        "step": [True, False],
+        "ext": [True, False],
     }
     parallel = True
     slient = False
@@ -84,7 +84,7 @@ class MyTask(TaskThread):
             f"--directory={work_dir}",
             "run",
             f"ARCH={self.arch}",
-            f"RESULT_FILE={target_dir}/out",
+            f"RESULT_FILE={target_dir}/{self.case_name}.out",
             f"TEST_OPTION={test_option}",
         ]
         self.run_process(cmd, f"{self.arch} Running")
@@ -128,9 +128,9 @@ class OPRecoder(MyTask):
             src=f"{work_dir}/result/op_record/op_recorder.out",
             dst=f"{target_dir}/{self.case_name}.out",
         )
+
     def echo(self):
         print("ll")
-
 
 
 if __name__ == "__main__":

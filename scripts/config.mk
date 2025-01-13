@@ -11,7 +11,11 @@ CXXFLAGS += -g
 endif
 
 ifneq ($(CONFIG_XUANTIE_RISCV),)
+ifneq ($(CONFIG_XTHEADC),)
+CXXFLAGS += -march=rv64gcv0p7_xtheadcb
+else
 CXXFLAGS += -march=rv64gcv0p7
+endif
 CXXFLAGS += -I$(XUANTIE_TOOLS)/lib/gcc/riscv64-unknown-linux-gnu/10.4.0/include
 endif
 

@@ -1,6 +1,6 @@
-# TARGET        ?= ../FRNSHEAAN-gem5-riscv64
-TARGET        ?= ../pthread-case/pthread-test
-TARGET_OPTION ?= --check --logN 11 --case fhe_step4_bar
+TARGET        ?= ../FRNSHEAAN-gem5-riscv64
+# TARGET        ?= ../pthread-case/pthread-test
+TARGET_OPTION ?= --check --logN 11 --case rvv_step4_mont
 BUILD_DIR     ?= ./result/m5out
 
 GEM5 = gem5-riscv

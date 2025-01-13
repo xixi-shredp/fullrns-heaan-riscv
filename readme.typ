@@ -13,6 +13,7 @@
 )
 
 = src
+仓库地址：https://github.com/xixi-shredp/fullrns-heaan-riscv.git
 == 使用Barrett单变量模乘
 === 数据预处理
 + 在Context中添加成员变量和成员函数
@@ -187,9 +188,18 @@ if (t >= 8) {
 = run/gem5
 
 - config下是配置脚本
-- mcpat是从gem5到mcpat的转换脚本（用不到了）
 - split_stat.py用于把stats.txt分割成多个
   - 因为代码里面使用到了m5ops.h的m5_dump_reset_stats，将统计信息分成了3个部分，第二部分是测试用例部分
 
 = Gem5源码修改
 仓库地址：https://github.com/xixi-shredp/xixi-gem5.git
+
+主要是src/arch/riscv/isa
++ 添加指令在decoder.isa
++ 添加一些format:format/fhe.isa
+  - FHEOp：本质就是ROp，标量扩展用
+  - VectorVXXFormatFHEOp：
+    - 为了使用vbarmulmod.vxx添加
+    - 在VectorIntFormat的基础上修改了操作数：
+      - src1和src2固定为标量操作数
+      - src3固定为向量操作数

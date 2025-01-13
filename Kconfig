@@ -33,6 +33,9 @@ if GEM5_RISCV
 config FHE_EXT
   bool "Enable FHE Extension"
   default y
+config FHE_EXT_SCALAR_SCHEDULE
+  bool "Enable FHE Extension Scalar Static Schedule"
+  default y
 endif
 
 
@@ -57,6 +60,16 @@ config BIGPAGE
 config RVV
   depends on (XUANTIE_RISCV || GEM5_RISCV || QEMU_RISCV)
   bool "Enbale RVV Optimization"
+  default n
+
+config RVV_STATIC_SCHEDULE
+  depends on RVV
+  bool "Enbale RVV Static Schedule"
+  default n
+
+config XTHEADC
+  depends on XUANTIE_RISCV
+  bool "Enbale Xtheadc Extension"
   default n
 
 # if RVV

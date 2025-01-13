@@ -5,7 +5,7 @@ endif
 
 ifeq ($(ARCH),xuantie-riscv64)
 run: $(BIN)
-	# scp $^ $(XUANTIE_HOST):~
+	scp $^ $(XUANTIE_HOST):~
 	ssh $(XUANTIE_HOST) \
 	"./$(notdir $(BIN)) $(TEST_OPTION)" \
 	2>&1 | tee $(RESULT_FILE)

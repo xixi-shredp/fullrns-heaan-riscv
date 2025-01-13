@@ -12,6 +12,6 @@ config.h
 /run/compile_commands.json
 /run/pthread-case/
 
-result/
+result*/
 
 __pycache__/
