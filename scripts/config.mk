@@ -21,6 +21,7 @@ endif
 
 ifneq ($(CONFIG_QEMU_RISCV),)
 CXXFLAGS += -march=rv64gcv
+CXXFLAGS += -static
 endif
 
 ifneq ($(CONFIG_GEM5_RISCV),)

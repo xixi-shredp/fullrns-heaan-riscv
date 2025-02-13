@@ -82,9 +82,9 @@ def c910CPUConfig(cpu):
     dcache.data_latency = 1
     dcache.write_buffers = 8  # wmb in C910
 
+    # In fact, TLB will not be used in SE Mode.
     ### ============== MMU ===================
     # mmu = cpu.mmu
-    # # In fact, TLB will not be used in SE Mode.
     # mmu.itb.size = 32
     # mmu.dtb.size = 17
     # jtlb = RiscvTLB(size=1024, entry_type="unified")

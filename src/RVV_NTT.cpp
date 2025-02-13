@@ -29,16 +29,17 @@ static inline void
 rvv_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
                           uint64_t q, uint64_t *qRootPows, uint64_t *barPres)
 {
+    // vlen_check();
+
     long res_vl = vsetvli(t, 64, 4);
+    // printf("vl set %ld , get %ld\n", t, res_vl);
     for (long i = 0; i < m; i++) {
         long op_len = t;
         long j1     = i << logt1;
         // long j2 = j1 + t - 1;
         uint64_t W = qRootPows[m + i];
         uint64_t R = barPres[m + i];
-        // printf("vl set %ld , get %ld\n", op_len, res_vl);
 
-    #ifndef CONFIG_RVV_STATIC_SCHEDULE
         uint64_t *va = a + j1;
         while (op_len > 0) {
             /// load
@@ -54,7 +55,7 @@ rvv_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
             /// submod
             vmsltu_vv(v0, v16, v12); // v0 = a[j] < V;
             vsub_vv(v4, v16, v12);   // a[j] - V;
-            vadd_vx_vm(v4, v4, q);   // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
+            vadd_vx_vm(v4, v4, q); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
             /// addmod
             vadd_vv(v16, v16, v12);  // a[j] += V;
             vmsgtu_vx(v0, v16, q);   // v0 = a[j] > q;
@@ -66,55 +67,6 @@ rvv_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
             va += res_vl;
             op_len -= res_vl;
         }
-    #else
-        // manual static schedule (compiler can not deal with it well.)
-        uint64_t *va1 = a + j1;
-        uint64_t *va2 = a + j1 + res_vl;
-        while (op_len > 0) {
-            /// load
-            vle_v(v4, va1 + t); // T = a[j + t];
-            vle_v(v16, va1);    // a[j];
-            vle_v(v20, va2 + t);
-            /// Bar Mod Mul Single Var
-            vmul_vx(v8, v4, W); // z1 = T * W;
-            vmul_vx(v24, v20, W);
-            vmulhu_vx(v12, v4, R); // t = ((__uint128_t)T * R) >> 64;
-            vmulhu_vx(v28, v20, R);
-            vmul_vx(v12, v12, q); // t1 = q * t;
-            vmul_vx(v28, v28, q);
-            vsub_vv(v12, v8, v12); // z = z1 - t1;
-            vsub_vv(v28, v24, v28);
-            vmsgtu_vx(v0, v12, q);   // v0 = z > q;
-            vsub_vx_vm(v12, v12, q); // V = v0 ? z - q : z;
-            vmsgtu_vx(v0, v28, q);
-            vsub_vx_vm(v28, v28, q);
-
-            vle_v(v24, va2);
-            /// submod
-            vmsltu_vv(v0, v16, v12); // v0 = a[j] < V;
-            vsub_vv(v4, v16, v12);   // a[j] - V;
-            vadd_vx_vm(v4, v4, q); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
-            vmsltu_vv(v0, v24, v28);
-            vsub_vv(v20, v24, v28);
-            vadd_vx_vm(v20, v20, q);
-            /// addmod
-            vadd_vv(v16, v16, v12);  // a[j] += V;
-            vmsgtu_vx(v0, v16, q);   // v0 = a[j] > q;
-            vsub_vx_vm(v16, v16, q); // V = v0 ? a[j] - q : a[j];
-            vadd_vv(v24, v24, v28);
-            vmsgtu_vx(v0, v24, q);
-            vsub_vx_vm(v24, v24, q);
-            /// store
-            vse_v(v4, va1 + t);  // a[j + t];
-            vse_v(v16, va1);     // a[j];
-            vse_v(v20, va2 + t); // a[j + t];
-            vse_v(v24, va2);     // a[j];
-
-            va1 += res_vl * 2;
-            va2 += res_vl * 2;
-            op_len -= res_vl * 2;
-        }
-    #endif
     }
 }
 
@@ -133,7 +85,6 @@ rvv_mth_op2_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
     uint64_t *oa   = a;
     long oa_stride = res_vl * t * 2;
 
-    #ifndef CONFIG_RVV_STATIC_SCHEDULE
     long b_stride = m;
     while (op_len > 0) {
         // printf("op_len:%3ld res_vl:%3ld t:%3ld\n", op_len, res_vl, t);
@@ -175,50 +126,6 @@ rvv_mth_op2_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
         oa += oa_stride;
         b_stride += res_vl;
     }
-    #else
-    // TODO: manual static schedule (compiler can not deal with it well.)
-    long b_stride = m;
-    while (op_len > 0) {
-        // printf("op_len:%3ld res_vl:%3ld t:%3ld\n", op_len, res_vl, t);
-        vle_v(v4, qRootPows + b_stride); // v4 = W[m + i];
-        vle_v(v8, barPres + b_stride);   // v8 = R[m + i];
-
-        uint64_t *va = oa;
-        for (int _ = 0; _ < t; _++) {
-            vlse_v(v12, va + t, stride); // T = a[j + t];
-            vlse_v(v24, va, stride);     // a[j];
-
-            /// Bar Mod Mul Single Var
-            vmul_vv(v16, v12, v4);   // z1 = T * W;
-            vmulhu_vv(v20, v12, v8); // t0 = T * R;
-            vmul_vx(v20, v20, q);    // t1 = t0 * q;
-            vsub_vv(v16, v16, v20);  // z = z1 - t1;
-            vmsgtu_vx(v0, v16, q);   // v0 = z > q;
-            vsub_vx_vm(v16, v16, q); // V = v0 ? z - q : z;
-
-            /// submod
-            vmsltu_vv(v0, v24, v16); // v0 = a[j] < V;
-            vsub_vv(v12, v24, v16);  // a[j] - V;
-            vadd_vx_vm(v12, v12,
-                       q); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
-
-            /// addmod
-            vadd_vv(v24, v24, v16);  // a[j] += V;
-            vmsgtu_vx(v0, v24, q);   // v0 = a[j] > q;
-            vsub_vx_vm(v24, v24, q); // V = v0 ? a[j] - q : a[j];
-
-            /// store
-            vsse_v(v12, va + t, stride); // a[j + t];
-            vsse_v(v24, va, stride);     // a[j];
-
-            va++;
-        }
-
-        op_len -= res_vl;
-        oa += oa_stride;
-        b_stride += res_vl;
-    }
-    #endif
 }
 static inline void
 mth_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1, uint64_t q,
@@ -244,12 +151,12 @@ static inline void
 rvv_mth_op1_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
                            uint64_t q, uint64_t qInv, uint64_t *qRootScalePows)
 {
+    long res_vl = vsetvli(t, 64, 4);
+    // printf("vl set %ld , get %ld\n", t, res_vl);
     for (long i = 0; i < m; i++) {
-        long j1     = i << logt1;
-        uint64_t W  = qRootScalePows[m + i];
-        long op_len = t;
-        long res_vl = vsetvli(op_len, 64, 4);
-        // printf("vl set %ld , get %ld\n", op_len, res_vl);
+        long j1      = i << logt1;
+        uint64_t W   = qRootScalePows[m + i];
+        long op_len  = t;
         uint64_t *va = a + j1;
         while (op_len > 0) {
             /// load
@@ -354,7 +261,7 @@ rvv_rowNTTWithBar(uint64_t *a, long N, long logN, uint64_t q, uint64_t qInv,
             rvv_mth_op2_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
             // rvv_mth_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
         }
-        // rvv_diff();
+        // rvv_bar_diff();
     }
 }
 
@@ -369,17 +276,18 @@ rvv_rowNTTWithMont(uint64_t *a, long N, long logN, uint64_t q, uint64_t qInv,
     for (long m = 1; m < N; m <<= 1) {
         t >>= 1;
         logt1 -= 1;
-        // rvv_diff_init();
+        rvv_diff_init();
 
         if (t >= 8) {
             rvv_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv,
                                        qRootScalePows);
+            // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
         } else {
             rvv_mth_op2_rowNTTWithMont(m, a, t, logt1, q, qInv,
                                        qRootScalePows);
             // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
         }
-        // rvv_diff();
+        rvv_mont_diff();
     }
 }
 
@@ -392,7 +300,6 @@ rvv_rowMulWithBar(long rowIdx, long rowSz, long logRowSz, uint64_t *src,
     long op_len   = rowSz;
     long res_vl   = vsetvli(op_len, 64, 4);
     uint64_t *va  = src + idx;
-    uint64_t *vw  = wmatrix_scalepows + idx;
     uint64_t *vwb = wmatrix_pows + idx;
     uint64_t *vb  = barPres + idx;
     while (op_len > 0) {
@@ -421,13 +328,12 @@ rvv_rowMulWithMont(long rowIdx, long rowSz, long logRowSz, uint64_t *src,
                    uint64_t *wmatrix_scalepows, uint64_t *wmatrix_pows,
                    uint64_t *barPres, long q, long qInv)
 {
-    uint64_t idx  = (rowIdx << logRowSz);
-    long op_len   = rowSz;
-    long res_vl   = vsetvli(op_len, 64, 4);
-    uint64_t *va  = src + idx;
-    uint64_t *vw  = wmatrix_scalepows + idx;
-    uint64_t *vwb = wmatrix_pows + idx;
-    uint64_t *vb  = barPres + idx;
+    uint64_t idx = (rowIdx << logRowSz);
+    long op_len  = rowSz;
+    long res_vl  = vsetvli(op_len, 64, 4);
+    uint64_t *va = src + idx;
+    uint64_t *vw = wmatrix_scalepows + idx;
+    uint64_t *vb = barPres + idx;
     while (op_len > 0) {
         vle_v(v4, va); // T
         vle_v(v8, vw); // W

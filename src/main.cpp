@@ -9,7 +9,7 @@
 using namespace std;
 
 // HACK: This is a workaround for the missing __dso_handle routine in the current toolchain
-extern "C" void *__dso_handle = 0;
+// extern "C" void *__dso_handle = 0;
 
 #include "TestScheme.h"
 #include "Numb.h"

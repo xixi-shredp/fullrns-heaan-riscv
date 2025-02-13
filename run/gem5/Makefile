@@ -1,6 +1,6 @@
 TARGET        ?= ../FRNSHEAAN-gem5-riscv64
-# TARGET        ?= ../pthread-case/pthread-test
-TARGET_OPTION ?= --check --logN 11 --case rvv_step4_mont
+# TARGET        ?= ~/ysyx/ysyx-workbench/am-kernels/tests/riscv-vector-tests-am/repo/out/v128x64user/bin/stage2/vse64_v-0
+TARGET_OPTION ?= --check --logN 11 --case rvv_ori_mont
 BUILD_DIR     ?= ./result/m5out
 
 GEM5 = gem5-riscv
@@ -15,7 +15,7 @@ ifneq ($(TARGET_OPTION),)
 SE_FLAGS += -o "$(TARGET_OPTION)"
 endif
 
-GEM5_ARGS += -q -d $(BUILD_DIR)
+GEM5_ARGS += -d $(BUILD_DIR)
 GEM5_CONFIG_PY = config/se.py
 SE_FLAGS += --output stdout.txt \
 						--errout stderr.txt

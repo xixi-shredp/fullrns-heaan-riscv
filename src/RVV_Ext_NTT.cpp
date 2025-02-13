@@ -189,6 +189,25 @@ rvv_ext_mth_op2_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
     }
 }
 
+    #define rvv_ext_bar_diff()                                          \
+        ext_mth_rowNTTWithBar(m, bx, t, logt1, q, qRootPows, barPres);  \
+        for (int i = 0; i < N; ++i) {                                   \
+            if (a[i] != bx[i]) {                                        \
+                printf("error in diff: m=%ld idx=%d t=%ld\n", m, i, t); \
+                printf("ref:0x%lx, dut:0x%lx\n", bx[i], a[i]);          \
+                exit(1);                                                \
+            }                                                           \
+        }
+    #define rvv_ext_mont_diff()                                           \
+        ext_mth_rowNTTWithMont(m, bx, t, logt1, q, qInv, qRootScalePows); \
+        for (int i = 0; i < N; ++i) {                                     \
+            if (a[i] != bx[i]) {                                          \
+                printf("error in diff: m=%ld idx=%d t=%ld\n", m, i, t);   \
+                printf("ref:0x%lx, dut:0x%lx\n", bx[i], a[i]);            \
+                exit(1);                                                  \
+            }                                                             \
+        }
+
 static inline void
 rvv_ext_rowNTT_withBar(uint64_t *a, long N, long logN, uint64_t q,
                        uint64_t qInv, uint64_t *qRootPows,
@@ -208,9 +227,8 @@ rvv_ext_rowNTT_withBar(uint64_t *a, long N, long logN, uint64_t q,
         } else {
             rvv_ext_mth_op2_rowNTTWithBar(m, a, t, logt1, q, qRootPows,
                                           barPres);
-            // rvv_mth_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
         }
-        // rvv_diff();
+        // rvv_ext_bar_diff();
     }
 }
 static inline void
@@ -224,7 +242,7 @@ rvv_ext_rowNTT_withMont(uint64_t *a, long N, long logN, uint64_t q,
     for (long m = 1; m < N; m <<= 1) {
         t >>= 1;
         logt1 -= 1;
-        // rvv_diff_init();
+        rvv_diff_init();
 
         if (t >= 8) {
             rvv_ext_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv,
@@ -234,7 +252,7 @@ rvv_ext_rowNTT_withMont(uint64_t *a, long N, long logN, uint64_t q,
                                            qRootScalePows);
             // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
         }
-        // rvv_diff();
+        rvv_ext_mont_diff();
     }
 }
 
@@ -270,6 +288,7 @@ rvv_rowMul_withBar(long rowIdx, long rowSz, long logRowSz, uint64_t *src,
         op_len -= res_vl;
     }
 }
+
 static inline void
 rvv_rowMul_withMont(long rowIdx, long rowSz, long logRowSz, uint64_t *src,
                     uint64_t *wmatrix_scalepows, uint64_t *wmatrix_pows,

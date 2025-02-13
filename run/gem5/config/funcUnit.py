@@ -23,19 +23,14 @@ class IntALUDiv(FUDesc):
     ]
     count = 1
 
-class MulMod(FUDesc):
+class IntMod(FUDesc):
     opList = [
+        OpDesc(opClass="FHEMod"),
+        OpDesc(opClass="FHEAddMod", opLat=2),
         OpDesc(opClass="FHEMontMulMod", opLat=8),
         OpDesc(opClass="FHEBarMulMod", opLat=6),
     ]
     count = 1
-class AddMod(FUDesc):
-    opList = [
-        OpDesc(opClass="FHEMod", opLat=1),
-        OpDesc(opClass="FHEAddMod", opLat=2),
-    ]
-    count = 2
-
 
 class VFPU(FUDesc):
     opList = [
@@ -87,13 +82,6 @@ class VFPU(FUDesc):
     ]
     count = 2
 
-
-
-# class PredALU(FUDesc):
-#     opList = [OpDesc(opClass="SimdPredAlu")]
-#     count = 1
-
-
 class LoadPipe(FUDesc):
     opList = [
         OpDesc(opClass="MemRead"),
@@ -119,10 +107,6 @@ class StorePipe(FUDesc):
     ]
     count = 2
 
-# class IprPort(FUDesc):
-#     opList = [OpDesc(opClass="IprAccess", opLat=3, pipelined=False)]
-#     count = 1
-
 class C910FUPool(FUPool):
     FUList = [
         LoadPipe(),
@@ -130,8 +114,7 @@ class C910FUPool(FUPool):
         BJU(),
         IntALUMult(),
         IntALUDiv(),
-        MulMod(),
-        AddMod(),
+        IntMod(),
         VFPU(),
     ]
 
