@@ -53,14 +53,19 @@
     #define vmulhu_vx(vd, vs2, rs1) rvv_vx_insn(vmulhu, vd, vs2, rs1, "")
 
     #define vsub_vv(vd, vs2, vs1)    rvv_vv_insn(vsub, vd, vs2, vs1, "")
+    #define vsub_vx(vd, vs2, rs1)    rvv_vx_insn(vsub, vd, vs2, rs1, "")
     #define vsub_vx_vm(vd, vs2, rs1) rvv_vx_insn(vsub, vd, vs2, rs1, ", v0.t")
     #define vadd_vv(vd, vs2, vs1)    rvv_vv_insn(vadd, vd, vs2, vs1, "")
+    #define vadd_vx(vd, vs2, rs1)    rvv_vx_insn(vadd, vd, vs2, rs1, "")
     #define vadd_vx_vm(vd, vs2, rs1) rvv_vx_insn(vadd, vd, vs2, rs1, ", v0.t")
 
     #define vmsgtu_vx(vd, vs2, rs1) rvv_vx_insn(vmsgtu, vd, vs2, rs1, "")
     #define vmsltu_vv(vd, vs2, vs1) rvv_vv_insn(vmsltu, vd, vs2, vs1, "")
+    #define vminu_vv(vd, vs2, vs1)  rvv_vv_insn(vminu, vd, vs2, vs1, "")
+    #define vmaxu_vv(vd, vs2, vs1)  rvv_vv_insn(vmaxu, vd, vs2, vs1, "")
 
     #define vmv_v_v(vd, vs1) asm volatile("vmv.v.v " #vd ", " #vs1)
+    #define vmv_v_x(vd, rs1) asm volatile("vmv.v.x " #vd ", %0" : : "r"(rs1))
 
     #define vsll_vx(vd, vs2, rs1) rvv_vx_insn(vsll, vd, vs2, rs1, "")
 
@@ -70,16 +75,8 @@
             bx[i] = a[i];               \
         }
 
-    #define rvv_bar_diff()                                              \
-        mth_rowNTTWithBar(m, bx, t, logt1, q, qRootPows, barPres);      \
-        for (int i = 0; i < N; ++i) {                                   \
-            if (a[i] != bx[i]) {                                        \
-                printf("error in diff: m=%ld idx=%d t=%ld\n", m, i, t); \
-                exit(1);                                                \
-            }                                                           \
-        }
-    #define rvv_mont_diff()                                             \
-        mth_rowNTTWithMont(m, bx, t, logt1, q, qInv, qRootScalePows);   \
+    #define rvv_diff(ref_code)                                          \
+        ref_code;                                                       \
         for (int i = 0; i < N; ++i) {                                   \
             if (a[i] != bx[i]) {                                        \
                 printf("error in diff: m=%ld idx=%d t=%ld\n", m, i, t); \

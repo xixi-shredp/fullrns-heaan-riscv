@@ -85,9 +85,9 @@ rvv_ext_mth_op2_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
             vlse_v(v12, va + t, stride); // T = a[j + t];
             vlse_v(v24, va, stride);     // a[j];
 
-            vbarmodmuls_vv(v12, v4, v8); // asm volatile(".word 0xf6440657");
-            vsubmod_vv(v16, v24, v12);   // asm volatile(".word 0xef860857");
-            vaddmod_vv(v24, v24, v12);   // asm volatile(".word 0xeb860c57");
+            vbarmodmuls_vv(v12, v4, v8);
+            vsubmod_vv(v16, v24, v12);
+            vaddmod_vv(v24, v24, v12);
             /// store
             vsse_v(v16, va + t, stride); // a[j + t];
             vsse_v(v24, va, stride);     // a[j];
@@ -358,6 +358,7 @@ Context::rvv_ext_ori_qiNTTAndEqual_withBar(uint64_t *a, long index)
 {
     uint64_t q    = qVec[index];
     uint64_t qInv = qInvVec[index];
+    SET_MOD;
     rvv_ext_rowNTT_withBar(a, N, logN, q, qInv, qRootPows[index], nullptr,
                            nttBarPres[index]);
 }
@@ -366,6 +367,7 @@ Context::rvv_ext_ori_qiNTTAndEqual_withMont(uint64_t *a, long index)
 {
     uint64_t q    = qVec[index];
     uint64_t qInv = qInvVec[index];
+    SET_MOD;
     rvv_ext_rowNTT_withMont(a, N, logN, q, qInv, nullptr,
                             qRootScalePows[index], nullptr);
 }

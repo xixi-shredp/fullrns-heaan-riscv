@@ -1,6 +1,6 @@
 TARGET        ?= ../FRNSHEAAN-gem5-riscv64
 # TARGET        ?= ~/ysyx/ysyx-workbench/am-kernels/tests/riscv-vector-tests-am/repo/out/v128x64user/bin/stage2/vse64_v-0
-TARGET_OPTION ?= --check --logN 11 --case rvv_ori_mont
+TARGET_OPTION ?= --check --logN 11 --case rvv_ext_ori_bar
 BUILD_DIR     ?= ./result/m5out
 
 GEM5 = gem5-riscv

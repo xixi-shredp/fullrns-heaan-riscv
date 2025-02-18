@@ -137,10 +137,18 @@ mth_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1, uint64_t q,
         uint64_t W = qRootScalePows[m + i];
         for (long j = j1; j <= j2; j++) {
             uint64_t T = a[j + t];
-            uint64_t V = montgomey_redc(T, W, q, qInv);
-            a[j + t]   = a[j] < V ? a[j] + q - V : a[j] - V;
-            a[j] += V;
-            if (a[j] > q) a[j] -= q;
+            // uint64_t V = montgomey_redc(T, W, q, qInv);
+            unsigned __int128 U = static_cast<unsigned __int128>(T) * W;
+            uint64_t U0 = static_cast<uint64_t>(U);
+            uint64_t U1 = static_cast<uint64_t>(U >> 64);
+            uint64_t Q = U0 * qInv;
+            unsigned __int128 Hx = static_cast<unsigned __int128>(Q) * q;
+            uint64_t H = static_cast<uint64_t>(Hx >> 64);
+            uint64_t V = U1 < H ? U1 + q - H : U1 - H;
+            // a[j + t]   = H;
+            // a[j + t]   = a[j] < V ? a[j] + q - V : a[j] - V;
+            // a[j] += V;
+            // if (a[j] > q) a[j] -= q;
         }
     }
 }
@@ -153,6 +161,7 @@ rvv_mth_op1_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
 {
     long res_vl = vsetvli(t, 64, 4);
     // printf("vl set %ld , get %ld\n", t, res_vl);
+    // vmv_v_x(v20, q);
     for (long i = 0; i < m; i++) {
         long j1      = i << logt1;
         uint64_t W   = qRootScalePows[m + i];
@@ -162,24 +171,45 @@ rvv_mth_op1_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
             /// load
             vle_v(v4, va + t); // T = a[j + t];
             vle_v(v16, va);    // a[j];
-            /// Mont Redc
-            vmul_vx(v8, v4, W);      // U0 = low_word(T * W);
-            vmulhu_vx(v12, v4, W);   // U1 = high_word(T * W);
-            vmul_vx(v8, v8, qInv);   // Q = U0 * qInv;
-            vmulhu_vx(v8, v8, q);    // H = high_word(Q * q);
-            vmsltu_vv(v0, v12, v8);  // v0 = U1 < H;
+
+            /// 1. Mont Redc
+            vmul_vx(v8, v4, W);    // U0 = low_word(T * W);
+            vmulhu_vx(v12, v4, W); // U1 = high_word(T * W);
+            vmul_vx(v8, v8, qInv); // Q = U0 * qInv;
+            vmulhu_vx(v8, v8, q);  // H = high_word(Q * q);
+            // ! mask register usage ! (error in gem5)
+            // vmsltu_vv(v0, v12, v8);  // v0 = U1 < H;
+            // vsub_vv(v12, v12, v8); // U1 - H;
+            // vadd_vx_vm(v12, v12, q); // V = v0 ? U1 - H + q : U1 - H;
+            // ! none-mask register usage !
             vsub_vv(v12, v12, v8);   // U1 - H;
-            vadd_vx_vm(v12, v12, q); // V = v0 ? U1 - H + q : U1 - H;
-            /// submod
-            vmsltu_vv(v0, v16, v12); // v0 = a[j] < V;
-            vsub_vv(v4, v16, v12);   // a[j] - V;
-            vadd_vx_vm(v4, v4, q); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
+            vadd_vx(v24, v12, q);    // U1 - H + q;
+            vminu_vv(v12, v24, v12); // V = U1 < H ? U1 + q - H : U1 - H;
+
+            /// 2. submod
+            // ! mask register usage ! (error in gem5)
+            // vmsltu_vv(v0, v16, v12); // v0 = a[j] < V;
+            // vsub_vv(v4, v16, v12);   // a[j] - V;
+            // vadd_vx_vm(v4, v4, q); // a[j + t]  = v0 ? a[j] - V + q : a[j] -
+            // V;
+            // ! none-mask register usage !
+            vsub_vv(v4, v16, v12); // a[j] - V;
+            vadd_vx(v8, v4, q);    // a[j] - V + q;
+            vminu_vv(v4, v4, v8);  // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
             vse_v(v4, va + t);     // a[j + t];
-            /// addmod
-            vadd_vv(v16, v16, v12);  // a[j] += V;
-            vmsgtu_vx(v0, v16, q);   // v0 = a[j] > q;
-            vsub_vx_vm(v16, v16, q); // V = v0 ? a[j] - q : a[j];
-            vse_v(v16, va);          // a[j];
+
+            /// 3. addmod
+            // ! mask register usage ! (error in gem5)
+            // vadd_vv(v16, v16, v12);  // a[j] += V;
+            // vmsgtu_vx(v0, v16, q);   // v0 = a[j] > q;
+            // vsub_vx_vm(v16, v16, q); // V = v0 ? a[j] - q : a[j];
+            // ! none-mask register usage !
+            vadd_vv(v16, v16, v12); // a[j] + V;
+            vsub_vx(v12, v16, q);   // a[j] + V - q;
+            vminu_vv(v16, v16,
+                     v12); // a[j] = a[j] + V > q ? a[j] + V - q : a[j] + V;
+
+            vse_v(v16, va); // a[j];
 
             va += res_vl;
             op_len -= res_vl;
@@ -198,13 +228,13 @@ rvv_mth_op2_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
 
     long op_len = m;
     long res_vl = vsetvli(op_len, 64, 4);
+    printf("vl set %ld , get %ld\n", m, res_vl);
 
     uint64_t *oa   = a;
     long oa_stride = res_vl * t * 2;
 
     long b_stride = m;
     while (op_len > 0) {
-        // printf("op_len:%3ld res_vl:%3ld t:%3ld\n", op_len, res_vl, t);
         vle_v(v4, qRootScalePows + b_stride); // v4 = W[m + i];
 
         uint64_t *va = oa;
@@ -213,26 +243,43 @@ rvv_mth_op2_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
             vlse_v(v24, va, stride);     // a[j];
 
             /// Mont Redc
-            vmul_vv(v8, v12, v4);    // U0 = low_word(T * W);
-            vmulhu_vv(v12, v12, v4); // U1 = high_word(T * W);
-            vmul_vx(v8, v8, qInv);   // Q = U0 * qInv;
-            vmulhu_vx(v8, v8, q);    // H = high_word(Q * q);
-            vmsltu_vv(v0, v12, v8);  // v0 = U1 < H;
-            vsub_vv(v16, v12, v8);   // U1 - H;
-            vadd_vx_vm(v16, v16, q); // V = v0 ? U1 - H + q : U1 - H;
-
-            /// submod
-            vmsltu_vv(v0, v24, v16); // v0 = a[j] < V;
-            vsub_vv(v12, v24, v16);  // a[j] - V;
-            vadd_vx_vm(v12, v12,
-                       q); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
+            // vmul_vv(v8, v12, v4);    // U0 = low_word(T * W);
+            // vmulhu_vv(v12, v12, v4); // U1 = high_word(T * W);
+            // vmul_vx(v8, v8, qInv);   // Q = U0 * qInv;
+            // vmulhu_vx(v8, v8, q);    // H = high_word(Q * q);
+            // mask register
+            // vmsltu_vv(v0, v12, v8);  // v0 = U1 < H;
+            // vsub_vv(v16, v12, v8);   // U1 - H;
+            // vadd_vx_vm(v16, v16, q); // V = v0 ? U1 - H + q : U1 - H;
+            // none-mask register
+            // vsub_vv(v12, v12, v8);   // U1 - H;
+            // vadd_vx(v16, v12, q);    // U1 - H + q;
+            // vminu_vv(v16, v12, v16); // V = v0 ? U1 - H + q : U1 - H;
             vsse_v(v12, va + t, stride); // a[j + t];
 
+            /// submod
+            // mask register
+            // vmsltu_vv(v0, v24, v16); // v0 = a[j] < V;
+            // vsub_vv(v12, v24, v16);  // a[j] - V;
+            // vadd_vx_vm(v12, v12,
+            //            q); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
+            // none-mask register
+            // vsub_vv(v4, v24, v16); // a[j] - V;
+            // vadd_vx(v8, v4, q);   // a[j] - V + q;
+            // vminu_vv(v12, v4,
+            //          v8); // a[j + t] = v0 ? a[j] - V + q : a[j] - V;
+            // vsse_v(v12, va + t, stride); // a[j + t];
+
             /// addmod
-            vadd_vv(v24, v24, v16);  // a[j] += V;
-            vmsgtu_vx(v0, v24, q);   // v0 = a[j] > q;
-            vsub_vx_vm(v24, v24, q); // V = v0 ? a[j] - q : a[j];
-            vsse_v(v24, va, stride); // a[j];
+            // mask register
+            // vadd_vv(v24, v24, v16);  // a[j] += V;
+            // vmsgtu_vx(v0, v24, q);   // v0 = a[j] > q;
+            // vsub_vx_vm(v24, v24, q); // V = v0 ? a[j] - q : a[j];
+            // none-mask register
+            // vadd_vv(v4, v24, v16);  // a[j] + V;
+            // vsub_vx(v8, v4, q);    // a[j] + V - q
+            // vminu_vv(v24, v4, v8); // a[j] = v0 ? a[j] + V - q : a[j] + V;
+            // vsse_v(v24, va, stride); // a[j];
             va++;
         }
 
@@ -261,7 +308,7 @@ rvv_rowNTTWithBar(uint64_t *a, long N, long logN, uint64_t q, uint64_t qInv,
             rvv_mth_op2_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
             // rvv_mth_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
         }
-        // rvv_bar_diff();
+        // rvv_diff(mth_rowNTTWithBar(m, bx, t, logt1, q, qRootPows, barPres));
     }
 }
 
@@ -279,15 +326,15 @@ rvv_rowNTTWithMont(uint64_t *a, long N, long logN, uint64_t q, uint64_t qInv,
         rvv_diff_init();
 
         if (t >= 8) {
-            rvv_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv,
-                                       qRootScalePows);
-            // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
+            // rvv_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv,
+            //                            qRootScalePows);
+            mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
         } else {
             rvv_mth_op2_rowNTTWithMont(m, a, t, logt1, q, qInv,
                                        qRootScalePows);
             // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
         }
-        rvv_mont_diff();
+        rvv_diff(mth_rowNTTWithMont(m, bx, t, logt1, q, qInv, qRootScalePows));
     }
 }
 
