@@ -36,6 +36,9 @@ config FHE_EXT
 config FHE_EXT_SCALAR_SCHEDULE
   bool "Enable FHE Extension Scalar Static Schedule"
   default y
+config FHE_EXT_VECTOR_SCHEDULE
+  bool "Enable FHE Extension Vector Static Schedule"
+  default y
 endif
 
 

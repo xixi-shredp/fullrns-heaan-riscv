@@ -32,15 +32,16 @@ rvv_ext_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
                               uint64_t q, uint64_t *qRootPows,
                               uint64_t *barPres)
 {
+    long res_vl = vsetvli(t, 64, 4);
     for (long i = 0; i < m; i++) {
         long j1 = i << logt1;
         // long j2 = j1 + t - 1;
         uint64_t W  = qRootPows[m + i];
         uint64_t R  = barPres[m + i];
         long op_len = t;
-        long res_vl = vsetvli(op_len, 64, 4);
         // printf("vl set %ld , get %ld\n", op_len, res_vl);
         uint64_t *va = a + j1;
+    #ifdef CONFIG_FHE_EXT_VECTOR_SCHEDULE
         while (op_len > 0) {
             /// load
             vle_v(v4, va + t); // T = a[j + t];
@@ -55,6 +56,22 @@ rvv_ext_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
             va += res_vl;
             op_len -= res_vl;
         }
+    #else
+        while (op_len > 0) {
+            /// load
+            vle_v(v4, va + t); // T = a[j + t];
+            vle_v(v16, va);    // a[j];
+            vbarmodmuls_vxx(v4, W, R);
+            vsubmod_vv(v8, v16, v4);
+            vaddmod_vv(v16, v16, v4);
+            /// store
+            vse_v(v8, va + t); // a[j + t];
+            vse_v(v16, va);    // a[j];
+
+            va += res_vl;
+            op_len -= res_vl;
+        }
+    #endif
     }
 }
 

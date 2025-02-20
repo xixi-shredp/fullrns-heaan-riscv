@@ -6,7 +6,7 @@ include ./scripts/filelist.mk
 RESULT_DIR = ./result
 
 TEST_LOGN ?= 11
-TEST_CASE ?= rvv_ext_step4_mont
+TEST_CASE ?= ext_step4_mont
 
 # Test Case
 TEST_OPTION ?= --check --logN $(TEST_LOGN) --case $(TEST_CASE)

@@ -143,7 +143,16 @@ class OPRecoder(MyTask):
 
 
 if __name__ == "__main__":
+
+    def scalar_golden_test(t: MyTask):
+        t.args["logN"] = [11]
+        t.args["rvv"] = [False]
+
+    def scalar_regress(t: MyTask):
+        t.args["rvv"] = [False]
+
     task = MyTask()
+    scalar_regress(task)
     task.set_task([MyTask.gem5_run])
     my = TaskDispatcher(task)
     my.start()
