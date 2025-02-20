@@ -46,20 +46,38 @@ rvv_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
             vle_v(v4, va + t); // T = a[j + t];
             vle_v(v16, va);    // a[j];
             /// Bar Mod Mul Single Var
-            vmul_vx(v8, v4, W);      // z1 = T * W;
-            vmulhu_vx(v12, v4, R);   // t = ((__uint128_t)T * R) >> 64;
-            vmul_vx(v12, v12, q);    // t1 = q * t;
-            vsub_vv(v12, v8, v12);   // z = z1 - t1;
-            vmsgtu_vx(v0, v12, q);   // v0 = z > q;
-            vsub_vx_vm(v12, v12, q); // V = v0 ? z - q : z;
+            vmul_vx(v8, v4, W);    // z1 = T * W;
+            vmulhu_vx(v12, v4, R); // t = ((__uint128_t)T * R) >> 64;
+            vmul_vx(v12, v12, q);  // t1 = q * t;
+            vsub_vv(v12, v8, v12); // z = z1 - t1;
+            /// mask reg
+            // vmsgtu_vx(v0, v12, q);   // v0 = z > q;
+            // vsub_vx_vm(v12, v12, q); // V = v0 ? z - q : z;
+            /// none-mask reg
+            vsub_vx(v8, v12, q);    // v0 = z - q;
+            vminu_vv(v12, v12, v8); // V = v0 ? z - q : z;
+
             /// submod
-            vmsltu_vv(v0, v16, v12); // v0 = a[j] < V;
-            vsub_vv(v4, v16, v12);   // a[j] - V;
-            vadd_vx_vm(v4, v4, q); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
+            /// mask reg
+            // vmsltu_vv(v0, v16, v12); // v0 = a[j] < V;
+            // vsub_vv(v4, v16, v12);   // a[j] - V;
+            // vadd_vx_vm(v4, v4, q); // a[j + t]  = v0 ? a[j] - V + q : a[j] -
+            // V;
+            /// none-mask reg
+            vsub_vv(v4, v16, v12); // a[j] - V;
+            vadd_vx(v8, v4, q);    // a[j] - V + q;
+            vminu_vv(v4, v4, v8);  // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
+
             /// addmod
-            vadd_vv(v16, v16, v12);  // a[j] += V;
-            vmsgtu_vx(v0, v16, q);   // v0 = a[j] > q;
-            vsub_vx_vm(v16, v16, q); // V = v0 ? a[j] - q : a[j];
+            /// mask reg
+            // vadd_vv(v16, v16, v12);  // a[j] += V;
+            // vmsgtu_vx(v0, v16, q);   // v0 = a[j] > q;
+            // vsub_vx_vm(v16, v16, q); // V = v0 ? a[j] - q : a[j];
+            /// none-mask reg
+            vadd_vv(v16, v16, v12); // a[j] + V;
+            vsub_vx(v8, v16, q);    // a[j] + V - q;
+            vminu_vv(v16, v16, v8); // V = v0 ? a[j] - q : a[j];
+
             /// store
             vse_v(v4, va + t); // a[j + t];
             vse_v(v16, va);    // a[j];
@@ -101,19 +119,34 @@ rvv_mth_op2_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
             vmulhu_vv(v20, v12, v8); // t0 = T * R;
             vmul_vx(v20, v20, q);    // t1 = t0 * q;
             vsub_vv(v16, v16, v20);  // z = z1 - t1;
-            vmsgtu_vx(v0, v16, q);   // v0 = z > q;
-            vsub_vx_vm(v16, v16, q); // V = v0 ? z - q : z;
+            // mask reg
+            // vmsgtu_vx(v0, v16, q);   // v0 = z > q;
+            // vsub_vx_vm(v16, v16, q); // V = v0 ? z - q : z;
+            // none-mask reg
+            vsub_vx(v12, v16, q);    // z - q;
+            vminu_vv(v16, v16, v12); // V = v0 ? z - q : z;
 
             /// submod
-            vmsltu_vv(v0, v24, v16); // v0 = a[j] < V;
-            vsub_vv(v12, v24, v16);  // a[j] - V;
-            vadd_vx_vm(v12, v12,
-                       q); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
+            // mask reg
+            // vmsltu_vv(v0, v24, v16); // v0 = a[j] < V;
+            // vsub_vv(v12, v24, v16);  // a[j] - V;
+            // vadd_vx_vm(v12, v12,
+            //            q); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
+            // none-mask reg
+            vsub_vv(v12, v24, v16); // a[j] - V;
+            vadd_vx(v20, v12, q);   // a[j] - V + q;
+            vminu_vv(v12, v12,
+                     v20); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
 
             /// addmod
-            vadd_vv(v24, v24, v16);  // a[j] += V;
-            vmsgtu_vx(v0, v24, q);   // v0 = a[j] > q;
-            vsub_vx_vm(v24, v24, q); // V = v0 ? a[j] - q : a[j];
+            // mask reg
+            // vadd_vv(v24, v24, v16);  // a[j] += V;
+            // vmsgtu_vx(v0, v24, q);   // v0 = a[j] > q;
+            // vsub_vx_vm(v24, v24, q); // V = v0 ? a[j] - q : a[j];
+            // none-mask reg
+            vadd_vv(v24, v24, v16);  // a[j] + V;
+            vsub_vx(v20, v24, q);    // a[j] + V - q;
+            vminu_vv(v24, v24, v20); // V = v0 ? a[j] - q : a[j];
 
             /// store
             vsse_v(v12, va + t, stride); // a[j + t];
@@ -137,18 +170,17 @@ mth_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1, uint64_t q,
         uint64_t W = qRootScalePows[m + i];
         for (long j = j1; j <= j2; j++) {
             uint64_t T = a[j + t];
-            // uint64_t V = montgomey_redc(T, W, q, qInv);
-            unsigned __int128 U = static_cast<unsigned __int128>(T) * W;
-            uint64_t U0 = static_cast<uint64_t>(U);
-            uint64_t U1 = static_cast<uint64_t>(U >> 64);
-            uint64_t Q = U0 * qInv;
-            unsigned __int128 Hx = static_cast<unsigned __int128>(Q) * q;
-            uint64_t H = static_cast<uint64_t>(Hx >> 64);
-            uint64_t V = U1 < H ? U1 + q - H : U1 - H;
-            // a[j + t]   = H;
-            // a[j + t]   = a[j] < V ? a[j] + q - V : a[j] - V;
-            // a[j] += V;
-            // if (a[j] > q) a[j] -= q;
+            uint64_t V = montgomey_redc(T, W, q, qInv);
+            // unsigned __int128 U  = static_cast<unsigned __int128>(T) * W;
+            // uint64_t U0          = static_cast<uint64_t>(U);
+            // uint64_t U1          = static_cast<uint64_t>(U >> 64);
+            // uint64_t Q           = U0 * qInv;
+            // unsigned __int128 Hx = static_cast<unsigned __int128>(Q) * q;
+            // uint64_t H           = static_cast<uint64_t>(Hx >> 64);
+            // uint64_t V           = U1 < H ? U1 + q - H : U1 - H;
+            a[j + t] = a[j] < V ? a[j] + q - V : a[j] - V;
+            a[j] += V;
+            if (a[j] > q) a[j] -= q;
         }
     }
 }
@@ -228,7 +260,7 @@ rvv_mth_op2_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
 
     long op_len = m;
     long res_vl = vsetvli(op_len, 64, 4);
-    printf("vl set %ld , get %ld\n", m, res_vl);
+    // printf("vl set %ld , get %ld\n", m, res_vl);
 
     uint64_t *oa   = a;
     long oa_stride = res_vl * t * 2;
@@ -238,48 +270,47 @@ rvv_mth_op2_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
         vle_v(v4, qRootScalePows + b_stride); // v4 = W[m + i];
 
         uint64_t *va = oa;
-        for (int _ = 0; _ < t; _++) {
+        for (int i = 0; i < t; i++) {
             vlse_v(v12, va + t, stride); // T = a[j + t];
             vlse_v(v24, va, stride);     // a[j];
 
             /// Mont Redc
-            // vmul_vv(v8, v12, v4);    // U0 = low_word(T * W);
-            // vmulhu_vv(v12, v12, v4); // U1 = high_word(T * W);
-            // vmul_vx(v8, v8, qInv);   // Q = U0 * qInv;
-            // vmulhu_vx(v8, v8, q);    // H = high_word(Q * q);
+            vmul_vv(v8, v12, v4);    // U0 = low_word(T * W);
+            vmulhu_vv(v16, v12, v4); // U1 = high_word(T * W);
+            vmul_vx(v12, v8, qInv);  // Q = U0 * qInv;
+            vmulhu_vx(v20, v12, q);  // H = high_word(Q * q);
             // mask register
-            // vmsltu_vv(v0, v12, v8);  // v0 = U1 < H;
-            // vsub_vv(v16, v12, v8);   // U1 - H;
-            // vadd_vx_vm(v16, v16, q); // V = v0 ? U1 - H + q : U1 - H;
+            vmsltu_vv(v0, v16, v20); // v0 = U1 < H;
+            vsub_vv(v16, v16, v20);  // U1 - H;
+            vadd_vx_vm(v16, v16, q); // V = v0 ? U1 - H + q : U1 - H;
             // none-mask register
-            // vsub_vv(v12, v12, v8);   // U1 - H;
-            // vadd_vx(v16, v12, q);    // U1 - H + q;
-            // vminu_vv(v16, v12, v16); // V = v0 ? U1 - H + q : U1 - H;
-            vsse_v(v12, va + t, stride); // a[j + t];
+            // vsub_vv(v8, v16, v20);   // U1 - H;
+            // vadd_vx(v16, v8, q);    // U1 - H + q;
+            // vminu_vv(v12, v8, v16); // V = v0 ? U1 - H + q : U1 - H;
 
             /// submod
             // mask register
-            // vmsltu_vv(v0, v24, v16); // v0 = a[j] < V;
-            // vsub_vv(v12, v24, v16);  // a[j] - V;
-            // vadd_vx_vm(v12, v12,
-            //            q); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
+            vmsltu_vv(v0, v24, v16); // v0 = a[j] < V;
+            vsub_vv(v12, v24, v16);  // a[j] - V;
+            vadd_vx_vm(v12, v12,
+                       q); // a[j + t]  = v0 ? a[j] - V + q : a[j] - V;
             // none-mask register
-            // vsub_vv(v4, v24, v16); // a[j] - V;
-            // vadd_vx(v8, v4, q);   // a[j] - V + q;
-            // vminu_vv(v12, v4,
+            // vsub_vv(v12, v24, v16); // a[j] - V;
+            // vadd_vx(v8, v12, q);    // a[j] - V + q;
+            // vminu_vv(v12, v12,
             //          v8); // a[j + t] = v0 ? a[j] - V + q : a[j] - V;
-            // vsse_v(v12, va + t, stride); // a[j + t];
+            vsse_v(v12, va + t, stride); // a[j + t];
 
             /// addmod
             // mask register
-            // vadd_vv(v24, v24, v16);  // a[j] += V;
-            // vmsgtu_vx(v0, v24, q);   // v0 = a[j] > q;
-            // vsub_vx_vm(v24, v24, q); // V = v0 ? a[j] - q : a[j];
+            vadd_vv(v24, v24, v16);  // a[j] += V;
+            vmsgtu_vx(v0, v24, q);   // v0 = a[j] > q;
+            vsub_vx_vm(v24, v24, q); // V = v0 ? a[j] - q : a[j];
             // none-mask register
-            // vadd_vv(v4, v24, v16);  // a[j] + V;
-            // vsub_vx(v8, v4, q);    // a[j] + V - q
-            // vminu_vv(v24, v4, v8); // a[j] = v0 ? a[j] + V - q : a[j] + V;
-            // vsse_v(v24, va, stride); // a[j];
+            // vadd_vv(v12, v24, v16);  // a[j] + V;
+            // vsub_vx(v8, v12, q);     // a[j] + V - q
+            // vminu_vv(v24, v12, v8);  // a[j] = v0 ? a[j] + V - q : a[j] + V;
+            vsse_v(v24, va, stride); // a[j];
             va++;
         }
 
@@ -301,14 +332,17 @@ rvv_rowNTTWithBar(uint64_t *a, long N, long logN, uint64_t q, uint64_t qInv,
         t >>= 1;
         logt1 -= 1;
         // rvv_diff_init();
-
-        if (t >= 8) {
-            rvv_mth_op1_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
-        } else {
-            rvv_mth_op2_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
-            // rvv_mth_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
-        }
+        //
+        // if (t >= 8) {
+        //     rvv_mth_op1_rowNTTWithBar(m, a, t, logt1, q, qRootPows,
+        //     barPres);
+        // } else {
+        //     rvv_mth_op2_rowNTTWithBar(m, a, t, logt1, q, qRootPows,
+        //     barPres);
+        //     // rvv_mth_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
+        // }
         // rvv_diff(mth_rowNTTWithBar(m, bx, t, logt1, q, qRootPows, barPres));
+        rvv_mth_op1_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
     }
 }
 
@@ -323,18 +357,21 @@ rvv_rowNTTWithMont(uint64_t *a, long N, long logN, uint64_t q, uint64_t qInv,
     for (long m = 1; m < N; m <<= 1) {
         t >>= 1;
         logt1 -= 1;
-        rvv_diff_init();
+        // rvv_diff_init();
 
-        if (t >= 8) {
-            // rvv_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv,
-            //                            qRootScalePows);
-            mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
-        } else {
-            rvv_mth_op2_rowNTTWithMont(m, a, t, logt1, q, qInv,
-                                       qRootScalePows);
-            // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
-        }
-        rvv_diff(mth_rowNTTWithMont(m, bx, t, logt1, q, qInv, qRootScalePows));
+        // if (t >= 8) {
+        //     rvv_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv,
+        //                                qRootScalePows);
+        //     // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
+        // } else {
+        //     rvv_mth_op2_rowNTTWithMont(m, a, t, logt1, q, qInv,
+        //                                qRootScalePows);
+        //     // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
+        // }
+        rvv_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
+        /// FIXME: Gem5 can not run op2,but qemu and xuantie-910 can.
+        // rvv_diff(mth_rowNTTWithMont(m, bx, t, logt1, q, qInv,
+        // qRootScalePows));
     }
 }
 
@@ -358,9 +395,13 @@ rvv_rowMulWithBar(long rowIdx, long rowSz, long logRowSz, uint64_t *src,
         vmulhu_vv(v12, v4, v12); // t = ((__uint128_t)T * R) >> 64;
         vmul_vx(v12, v12, q);    // t1 = q * t;
         vsub_vv(v12, v8, v12);   // z = z1 - t1;
-        vmsgtu_vx(v0, v12, q);   // v0 = z > q;
-        vsub_vx_vm(v12, v12, q); // V = v0 ? z - q : z;
-        vse_v(v12, va);          // a[idx]
+        /// mask reg
+        // vmsgtu_vx(v0, v12, q);   // v0 = z > q;
+        // vsub_vx_vm(v12, v12, q); // V = v0 ? z - q : z;
+        /// none-mask reg
+        vsub_vx(v4, v12, q);    // v0 = z - q;
+        vminu_vv(v12, v12, v4); // V = v0 ? z - q : z;
+        vse_v(v12, va);         // a[idx]
 
         vwb += res_vl;
         vb += res_vl;
@@ -393,6 +434,8 @@ rvv_rowMulWithMont(long rowIdx, long rowSz, long logRowSz, uint64_t *src,
         vmsltu_vv(v0, v16, v12); // v0 = U1 < H;
         vsub_vv(v12, v16, v12);  // U1 - H;
         vadd_vx_vm(v12, v12, q); // V = v0 ? U1 - H + q : U1 - H;
+
+        // TODO: why the v0 can be used here in gem5?
 
         vse_v(v12, va); // a[idx]
         vw += res_vl;

@@ -18,19 +18,6 @@ def fhe_result(stdout: str):
     time = float(t_line.split("=")[1].strip().split(" ")[0].strip())
     return time
 
-# def mcpat_result(mcpat_out: str):
-#     with open(mcpat_out, "r") as f:
-#         lines = f.readlines()
-#     core_line = 0
-#     for line in lines:
-#         if "Core:" in line:
-#             break
-#         core_line += 1
-#     data_line = lines[core_line + 5]
-#     assert "Runtime Dynamic" in data_line
-#     power = float(data_line.split("=")[1].strip().split(" ")[0].strip())
-#     return power
-
 def case_sort(items: list[list]):
     items.sort(key=lambda x: len(x[0]))
 

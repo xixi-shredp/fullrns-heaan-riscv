@@ -41,10 +41,16 @@
             asm volatile("vle64.v " #vd ", (%0)" : : "r"(rs1));
         #define vse_v(vs3, rs1) \
             asm volatile("vse64.v " #vs3 ", (%0)" : : "r"(rs1));
-        #define vlse_v(vd, rs1, rs2) \
-            asm volatile("vlse64.v " #vd ", (%0), %1" : : "r"(rs1), "r"(rs2));
-        #define vsse_v(vs3, rs1, rs2) \
-            asm volatile("vsse64.v " #vs3 ", (%0), %1" : : "r"(rs1), "r"(rs2));
+        #define vlse_v(vd, rs1, rs2)                  \
+            asm volatile("vlse64.v " #vd ", (%0), %1" \
+                         :                            \
+                         : "r"(rs1), "r"(rs2)         \
+                         : "memory");
+        #define vsse_v(vs3, rs1, rs2)                  \
+            asm volatile("vsse64.v " #vs3 ", (%0), %1" \
+                         :                             \
+                         : "r"(rs1), "r"(rs2)          \
+                         : "memory");
     #endif
 
     #define vmul_vv(vd, vs2, vs1)   rvv_vv_insn(vmul, vd, vs2, vs1, "")

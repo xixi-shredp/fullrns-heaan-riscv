@@ -17,20 +17,14 @@ endif
 
 GEM5_ARGS += -d $(BUILD_DIR)
 GEM5_CONFIG_PY = config/se.py
-SE_FLAGS += --output stdout.txt \
-						--errout stderr.txt
 
 # GEM5_ARGS += --debug-flag=ExecEnable,ExecUser,ExecKernel,ExecSymbol --debug-file=trace.out.gz 
 
 se: $(TARGET)
 	@mkdir -p $(BUILD_DIR)
-	@$(GEM5) $(GEM5_ARGS) $(GEM5_CONFIG_PY) $(SE_FLAGS)
 	@echo "=================================="
+	@$(GEM5) $(GEM5_ARGS) $(GEM5_CONFIG_PY) $(SE_FLAGS) | tee $(BUILD_DIR)/stdout.txt
 	@echo "$(ANSI_FG_YELLOW)[$(GEM5)] run: $(notdir $(TARGET))$(ANSI_NONE)"
-	@echo "$(ANSI_FG_GREEN)Stdout:$(ANSI_NONE)"
-	@cat $(BUILD_DIR)/stdout.txt
-	@echo "$(ANSI_FG_RED)Stderr:$(ANSI_NONE)"
-	@cat $(BUILD_DIR)/stderr.txt
 	@echo "=================================="
 	@./split_stat.py $(BUILD_DIR)/stats.txt
 

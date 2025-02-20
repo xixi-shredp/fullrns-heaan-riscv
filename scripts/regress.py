@@ -2,14 +2,13 @@
 
 import os
 from ansi.color import fg
-from pyxixi.spaceExplore import TaskDispatcher, TaskThread
+from pyxixi.spaceExplore import TaskDispatcher, TaskThread, TaskStatus
 
 root = os.getenv("FHE_ROOT")
 work_dir = f"{root}/workload/FullRNS-HEAAN"
 if root:
     gem5_run_dir = f"{work_dir}/run/gem5"
     gem5_target = f"{work_dir}/run/FRNSHEAAN-gem5-riscv64"
-    mcpat_run_dir = f"{gem5_run_dir}/mcpat"
 else:
     print("need env: FHE_ROOT")
     exit(1)
@@ -29,7 +28,7 @@ def check_file(path: str):
     return True
 
 
-if not check_dir(mcpat_run_dir) or not check_file(gem5_target):
+if not check_file(gem5_target):
     exit(1)
 
 
@@ -44,7 +43,7 @@ class MyTask(TaskThread):
         "arch": ["gem5-riscv64"],
         "logN": [11, 12, 13, 14, 15, 16],
         "bar": [True, False],
-        "rvv": [False],
+        "rvv": [True, False],
         "step": [True, False],
         "ext": [True, False],
     }
@@ -90,6 +89,14 @@ class MyTask(TaskThread):
         self.run_process(cmd, f"{self.arch} Running")
 
     def gem5_run(self):
+        def check_pass(path: str) -> bool:
+            with open(path, "r") as f:
+                stdout = f.readlines()[-2]
+                if "pass" in stdout:
+                    return True
+                else:
+                    return False
+
         build_dir = f"{work_dir}/result/gem5-riscv64/{self.logN}/{self.case_name}"
         target_option = f"--check --logN {self.logN} --case {self.case_name}"
         cmd = [
@@ -106,7 +113,9 @@ class MyTask(TaskThread):
         stat_file = f"{build_dir}/stats.txt.out_1"
         check = check_dir(build_dir) and check_file(cfg_file) and check_file(stat_file)
         if not check:
-            self.status = False
+            self.status = TaskStatus.FILE_ERROR
+        if not check_pass(f"{build_dir}/stdout.txt"):
+            self.status = TaskStatus.VALUE_ERROR
 
 
 class OPRecoder(MyTask):
@@ -138,3 +147,4 @@ if __name__ == "__main__":
     task.set_task([MyTask.gem5_run])
     my = TaskDispatcher(task)
     my.start()
+    my.report_status()

@@ -28,7 +28,7 @@ BP_FLAGS = --bp-type C910BiModeBP
 MEM_FLAGS = --mem-type DDR5_8400_4x8 \
 						--mem-size 7715MiB
 
-SE_FLAGS += -n 4 --sys-voltage 0.8 \
+SE_FLAGS += -n 4 --sys-voltage $(SYS_VOLATGE) \
 						--sys-clock $(SYS_CLOCK) \
 						--cpu-clock $(CPU_CLOCK) \
 						--cpu-type RiscvO3CPU \
