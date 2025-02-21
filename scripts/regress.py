@@ -151,8 +151,15 @@ if __name__ == "__main__":
     def scalar_regress(t: MyTask):
         t.args["rvv"] = [False]
 
+    def vector_golden_test(t: MyTask):
+        t.args["logN"] = [11]
+        t.args["rvv"] = [True]
+
+    def vector_regress(t: MyTask):
+        t.args["rvv"] = [True]
+
     task = MyTask()
-    scalar_regress(task)
+    vector_regress(task)
     task.set_task([MyTask.gem5_run])
     my = TaskDispatcher(task)
     my.start()

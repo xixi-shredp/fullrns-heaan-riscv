@@ -6,7 +6,7 @@ include ./scripts/filelist.mk
 RESULT_DIR = ./result
 
 TEST_LOGN ?= 11
-TEST_CASE ?= ext_step4_mont
+TEST_CASE ?= rvv_ext_step4_mont
 
 # Test Case
 TEST_OPTION ?= --check --logN $(TEST_LOGN) --case $(TEST_CASE)
@@ -14,6 +14,9 @@ RESULT_FILE ?= $(RESULT_DIR)/$(ARCH)/$(TEST_LOGN)/$(TEST_CASE).out
 $(shell mkdir -p ./result/$(ARCH)-noxt/$(TEST_LOGN))
 
 include ./scripts/build.mk
+
+regress:
+	./scripts/regress.py && ./scripts/generate_md_table.py
 
 menuconfig:
 	@menuconfig Kconfig

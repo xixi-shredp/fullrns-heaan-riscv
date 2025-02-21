@@ -42,11 +42,35 @@ rvv_ext_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
         // printf("vl set %ld , get %ld\n", op_len, res_vl);
         uint64_t *va = a + j1;
     #ifdef CONFIG_FHE_EXT_VECTOR_SCHEDULE
-        while (op_len > 0) {
+        long len = res_vl * 2;
+        while (op_len >= len) {
             /// load
             vle_v(v4, va + t); // T = a[j + t];
-            vle_v(v16, va);    // a[j];
+            vle_v(v8, va + t + res_vl);
             vbarmodmuls_vxx(v4, W, R);
+            vbarmodmuls_vxx(v8, W, R);
+
+            vle_v(v12, va); // a[j];
+            vle_v(v16, va + res_vl);
+
+            vsubmod_vv(v20, v12, v4);
+            vaddmod_vv(v4, v12, v4);
+            vse_v(v20, va + t); // a[j + t];
+            vse_v(v4, va);      // a[j];
+
+            vsubmod_vv(v24, v16, v8);
+            vaddmod_vv(v8, v16, v8);
+            vse_v(v24, va + t + res_vl); // a[j + t];
+            vse_v(v8, va + res_vl);      // a[j];
+
+            va += len;
+            op_len -= len;
+        }
+        if (op_len == res_vl) {
+            /// load
+            vle_v(v4, va + t); // T = a[j + t];
+            vbarmodmuls_vxx(v4, W, R);
+            vle_v(v16, va); // a[j];
             vsubmod_vv(v8, v16, v4);
             vaddmod_vv(v16, v16, v4);
             /// store
@@ -60,8 +84,8 @@ rvv_ext_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
         while (op_len > 0) {
             /// load
             vle_v(v4, va + t); // T = a[j + t];
-            vle_v(v16, va);    // a[j];
             vbarmodmuls_vxx(v4, W, R);
+            vle_v(v16, va); // a[j];
             vsubmod_vv(v8, v16, v4);
             vaddmod_vv(v16, v16, v4);
             /// store
@@ -148,6 +172,46 @@ rvv_ext_mth_op1_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
         long res_vl = vsetvli(op_len, 64, 4);
         // printf("vl set %ld , get %ld\n", op_len, res_vl);
         uint64_t *va = a + j1;
+    #ifdef CONFIG_FHE_EXT_VECTOR_SCHEDULE
+        long len = res_vl * 2;
+        while (op_len >= len) {
+            /// load
+            vle_v(v4, va + t); // T = a[j + t];
+            vle_v(v8, va + t + res_vl);
+            vmontredc_vx(v4, v4, W);
+            vmontredc_vx(v8, v8, W);
+
+            vle_v(v12, va); // a[j];
+            vle_v(v16, va + res_vl);
+
+            vsubmod_vv(v20, v12, v4);
+            vaddmod_vv(v4, v12, v4);
+            vse_v(v20, va + t); // a[j + t];
+            vse_v(v4, va);      // a[j];
+
+            vsubmod_vv(v24, v16, v8);
+            vaddmod_vv(v8, v16, v8);
+            vse_v(v24, va + t + res_vl); // a[j + t];
+            vse_v(v8, va + res_vl);      // a[j];
+
+            va += len;
+            op_len -= len;
+        }
+        if (op_len == res_vl) {
+            /// load
+            vle_v(v4, va + t); // T = a[j + t];
+            vle_v(v16, va);    // a[j];
+
+            vmontredc_vx(v12, v4, W);
+            vsubmod_vv(v4, v16, v12);
+            vse_v(v4, va + t); // a[j + t];
+            vaddmod_vv(v16, v16, v12);
+            vse_v(v16, va); // a[j];
+
+            va += res_vl;
+            op_len -= res_vl;
+        }
+    #else
         while (op_len > 0) {
             /// load
             vle_v(v4, va + t); // T = a[j + t];
@@ -162,6 +226,7 @@ rvv_ext_mth_op1_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
             va += res_vl;
             op_len -= res_vl;
         }
+         #endif
     }
 }
 

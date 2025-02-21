@@ -237,7 +237,8 @@ Context::ext_qiNTTAndEqual_withMont(uint64_t *a, long index)
             }
                 /// Way 3: all-pipelined, but without great
                 /// performance,
-                ///        because of more load/store inst.
+                ///        because of more load/store inst.(the physical
+                ///        registers can't contain all the middle-result)
                 // for (long j = j1; j <= j2; j++) {
                 //     uint64_t T = a[j + t];
                 //     uint64_t V = bar_mulmod_s(T, Wori,
