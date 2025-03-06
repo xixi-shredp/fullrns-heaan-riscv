@@ -26,4 +26,7 @@ clean:
 	rm -rf $(OBJS) $(TARGET_LIB)
 	rm -rf $(BIN)
 
+mod_test:
+	make -C scripts -f mod_test.mk run
+
 .PHONY: menuconfig clean $(RESULT_DIR)

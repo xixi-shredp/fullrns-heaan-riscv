@@ -15,6 +15,8 @@ using namespace std;
 
 class TestScheme {
 public:
+	static void testSOTA(long logN, long logp);
+
 	static void testEncodeSingle(long logN, long L, long logp);
 
 	static void testEncodeBatch(long logN, long L, long logp, long logSlots);

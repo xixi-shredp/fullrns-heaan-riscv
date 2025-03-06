@@ -118,6 +118,88 @@ class MyTask(TaskThread):
             self.status = TaskStatus.VALUE_ERROR
 
 
+class ModTest(TaskThread):
+    logN: int
+    case: str
+    args = {
+        "logN": [11, 12, 13, 14, 15, 16],
+        "case": ["addmod", "barmulmod", "montredc"],
+    }
+    parallel = True
+    slient = False
+
+    def arg_init(self) -> None:
+        self.cfg_prompt = f"logN={self.logN} case={self.case}"
+        self.error_prompt = fg.red("stop task: " + self.cfg_prompt)
+        self.start_prompt = fg.yellow("start task: " + self.cfg_prompt)
+        self.finish_prompt = fg.green("finish task: " + self.cfg_prompt)
+
+    def run(self):
+        build_dir = f"{work_dir}/result/mod-test/{self.logN}/{self.case}"
+        target_option = f"--logN {self.logN} --case {self.case}"
+        cmd = [
+            "make",
+            f"--directory={gem5_run_dir}",
+            "se",
+            f"TARGET={work_dir}/run/mod_test",
+            f"TARGET_OPTION={target_option}",
+            f"BUILD_DIR={build_dir}",
+        ]
+        self.run_process(cmd, "Gem5 Running")
+
+        stat_file = f"{build_dir}/stdout.txt"
+        check = check_dir(build_dir) and check_file(stat_file)
+        if not check:
+            self.status = TaskStatus.FILE_ERROR
+
+
+class RiseTest(TaskThread):
+    logN: int
+    logQ: int
+    args = {"logN": [10, 11, 12, 13, 14]}
+    parallel = True
+    slient = False
+    qn_maps = {10: 27, 11: 30, 12: 90, 13: 216, 14: 432}
+
+    def arg_init(self) -> None:
+        self.logQ = self.qn_maps[self.logN]
+        self.cfg_prompt = f"logN={self.logN} logQ={self.logQ}"
+        self.error_prompt = fg.red("stop task: " + self.cfg_prompt)
+        self.start_prompt = fg.yellow("start task: " + self.cfg_prompt)
+        self.finish_prompt = fg.green("finish task: " + self.cfg_prompt)
+
+    def run(self):
+        def check_pass(path: str):
+            with open(path, "r") as f:
+                lines = f.readlines()
+            eval = lines[-4].lstrip("eval:(").split(")")[0].split(",")
+            eval = map(float, eval)
+            for i in eval:
+                if abs(i) > 1e-3:
+                    return False
+            return True
+
+        build_dir = f"{work_dir}/result/gem5-riscv64-sota/{self.logN}-{self.logQ}-base"
+        target_option = f"--sota --logN {self.logN} --logQ {self.logQ}"
+        cmd = [
+            "make",
+            f"--directory={gem5_run_dir}",
+            "se",
+            f"TARGET={work_dir}/run/FRNSHEAAN-gem5-riscv64",
+            f"TARGET_OPTION={target_option}",
+            f"BUILD_DIR={build_dir}",
+        ]
+        self.run_process(cmd, "Gem5 Running")
+
+        stat_file = f"{build_dir}/stdout.txt"
+        check = check_dir(build_dir) and check_file(stat_file)
+        if not check:
+            self.status = TaskStatus.FILE_ERROR
+        check = check_pass(stat_file)
+        if not check:
+            self.status = TaskStatus.VALUE_ERROR
+
+
 class OPRecoder(MyTask):
     def __init__(self) -> None:
         self.args = {
@@ -158,9 +240,16 @@ if __name__ == "__main__":
     def vector_regress(t: MyTask):
         t.args["rvv"] = [True]
 
-    task = MyTask()
-    vector_regress(task)
-    task.set_task([MyTask.gem5_run])
+    # task = MyTask()
+    # vector_regress(task)
+    # task.set_task([MyTask.gem5_run])
+
+    # task = ModTest()
+    # task.set_task([ModTest.run])
+
+    task = RiseTest()
+    task.set_task([RiseTest.run])
+
     my = TaskDispatcher(task)
     my.start()
     my.report_status()

@@ -282,6 +282,7 @@ l2cache.assoc = 16
 l2cache.size = "1MB"
 l2cache.tag_latency = 5
 l2cache.data_latency = 8
+# 4-bank l2 cache (gem5 can not set this)
 
 root = Root(full_system=False, system=system)
 Simulation.run(args, root, system, FutureClass)

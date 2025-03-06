@@ -146,7 +146,7 @@ testCase(bool need_check, long logN, string case_name, long nr_thread)
     map<string, ntt_func_t *> func_map = {CASES(MAP_DEFINE)};
 
     long L        = 1;
-    long logp     = 55;
+    long logp     = 30;
     long logSlots = 0;
 
     auto cur_case = func_map.find(case_name);

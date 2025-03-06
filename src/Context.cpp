@@ -908,7 +908,17 @@ Context::ref_qiNTTAndEqual(uint64_t *a, long index)
 void
 Context::qiNTTAndEqual(uint64_t *a, long index)
 {
-    origin_qiNTTAndEqual_withMont(a, index);
+#ifdef CONFIG_TEST_BASELINE
+  // origin_qiNTTAndEqual_withMont(a, index);
+  // origin_qiNTTAndEqual_withBar(a, index);
+  // step4_qiNTTAndEqual_withBar(a, index);
+  step4_qiNTTAndEqual_withMont(a, index);
+#else
+  // rvv_ext_ori_qiNTTAndEqual_withMont(a, index);
+  // rvv_ext_ori_qiNTTAndEqual_withBar(a, index);
+  rvv_ext_step4_qiNTTAndEqual_withMont(a, index);
+  // rvv_ext_step4_qiNTTAndEqual_withBar(a, index);
+#endif
 }
 
 void

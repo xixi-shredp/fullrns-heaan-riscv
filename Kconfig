@@ -13,6 +13,16 @@ config QEMU_RISCV
   bool "Qemu-Riscv"
 endchoice
 
+config TEST_SOTA
+  bool "Test for SOTA"
+  default n
+
+if TEST_SOTA
+  config TEST_BASELINE
+    bool "Use Baseline"
+    default n
+endif
+
 config ARCH
   string
   default "gem5-riscv64" if GEM5_RISCV

@@ -23,6 +23,32 @@
 using namespace std;
 using namespace chrono;
 
+void TestScheme::testSOTA(long logN, long logp) {
+	cout << "!!! START TEST For SOTA compare !!!" << endl;
+	//-----------------------------------------
+	TimeUtils timeutils;
+	long k = 1;
+	Context context(logN, logp, 1, k);
+	SecretKey secretKey(context);
+	Scheme scheme(secretKey, context);
+	//-----------------------------------------
+	srand(time(NULL));
+	//-----------------------------------------
+	complex<double> m = EvaluatorUtils::randomCircle();
+
+	timeutils.start("Encrypt single");
+	Ciphertext cipher = scheme.encryptSingle(m, 1);
+	timeutils.stop("Encrypt single");
+
+	timeutils.start("Decrypt single");
+	complex<double> d = scheme.decryptSingle(secretKey, cipher);
+	timeutils.stop("Decrypt single");
+
+	StringUtils::showcompare(m, d, "val");
+
+	cout << "!!! END TEST For SOTA compare !!!" << endl;
+}
+
 void TestScheme::testEncodeSingle(long logN, long L, long logp) {
 	cout << "!!! START TEST ENCODE SINGLE !!!" << endl;
 	//-----------------------------------------
