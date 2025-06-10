@@ -47,8 +47,8 @@ def process_gem5_out(logNs: list[int]):
         head.append(f"logN{logN}")
     case_sort(items)
     speedups = cal_sppedup(items)
-    ave_speedup = average(speedups)
-    MarkdownTableGen(["case", "ave_speedup"], ave_speedup).generate()
+    # ave_speedup = average(speedups)
+    # MarkdownTableGen(["case", "ave_speedup"], ave_speedup).generate()
     # generate_dat_file(speedups, logNs, "./data/")
     MarkdownTableGen(head, speedups).generate()
     MarkdownTableGen(head, items).generate()
@@ -98,7 +98,7 @@ def cal_sppedup(data: list[list]):
             if name in row[0] and name != row[0]:
                 tem = [row[0]]
                 for i in range(1, nr_log + 1):
-                    tem.append(round(maps[name][i] / row[i], 3))
+                    tem.append(round(maps[name][i] / float(row[i]), 3))
                 new_data.append(tem)
     for i in range(4):
         for j in range(1, nr_log + 1):
@@ -203,5 +203,5 @@ if __name__ == "__main__":
     logNs = [11, 12, 13, 14, 15, 16]
     # process_mcpat(logNs)
     # process_fhe_out("xuantie-riscv64", logNs)
-    # process_gem5_out(logNs)
-    process_encode(bar=False)
+    process_gem5_out(logNs)
+    # process_encode(bar=False)

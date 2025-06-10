@@ -6,11 +6,14 @@
  * work.  If not, see <http://creativecommons.org/licenses/by-nc/3.0/>.
  */
 
+#include <cassert>
 #include <stdint.h>
 
 #include "Context.h"
 #include "EvaluatorUtils.h"
+#include "ExtUtil.h"
 #include "Step4NTTUtil.h"
+#include "ThreadPool.h"
 #include "preprocess.h"
 
 Context::Context(long logN, long logp, long L, long K, long h, double sigma)
@@ -70,6 +73,8 @@ Context::Context(long logN, long logp, long L, long K, long h, double sigma)
     } else {
         s4ntt_colBarPres = cus_alloc(uint64_t *, L);
     }
+    
+    thread_pool = thread_pool_create(MaxThread - 1);
 
     qRootAllPows = new uint64_t *[L];
 
@@ -473,6 +478,12 @@ Context::Context(long logN, long logp, long L, long K, long h, double sigma)
     }
 }
 
+Context::~Context()
+{
+    // TODO: free the alloced memory.
+    thread_pool_destroy(thread_pool);
+}
+
 void
 Context::arrayBitReverse(complex<double> *vals, const long size)
 {
@@ -735,7 +746,7 @@ Context::NTT(uint64_t *res, uint64_t *a, long l, long k)
     }
 }
 
-#define ENBALE_OPRECORD
+// #define ENBALE_OPRECORD
 #ifdef ENBALE_OPRECORD
     #include "OpRecorder.h"
 static OpRecorder o_opr = OpRecorder(CONFIG_OP_RECORDER_PATH);
@@ -779,21 +790,9 @@ Context::origin_qiNTTAndEqual_withBar(uint64_t *a, long index)
                 if (a[j] > q) a[j] -= q;
                 submod_record;
                 addmod_record;
-                //				if(a[j] >= qd) a[j] -= qd;
-                //				uint64_t T = a[j + t];
-                //				unsigned __int128 U =
-                // static_cast<unsigned __int128>(T) * W;
-                // uint64_t Q = static_cast<uint64_t>(U >> 64);
-                // T *= w; 				uint64_t T1 = Q * q;
-                // T -= T1; 				a[j + t] = a[j] + qd -
-                // T; a[j] += T;
             }
         }
     }
-    //	for(long i = 0; i < N; i++) {
-    //		if(a[i] >= qd) a[i] -= qd;
-    //		if(a[i] >= q) a[i] -= q;
-    //	}
 }
 void
 Context::origin_qiNTTAndEqual_withMont(uint64_t *a, long index)
@@ -908,6 +907,8 @@ Context::ref_qiNTTAndEqual(uint64_t *a, long index)
 void
 Context::qiNTTAndEqual(uint64_t *a, long index)
 {
+  // origin_qiNTTAndEqual_withBar(a, index);
+  origin_qiNTTAndEqual_withMont(a, index);
 #ifdef CONFIG_TEST_BASELINE
   // origin_qiNTTAndEqual_withMont(a, index);
   // origin_qiNTTAndEqual_withBar(a, index);
@@ -916,7 +917,7 @@ Context::qiNTTAndEqual(uint64_t *a, long index)
 #else
   // rvv_ext_ori_qiNTTAndEqual_withMont(a, index);
   // rvv_ext_ori_qiNTTAndEqual_withBar(a, index);
-  rvv_ext_step4_qiNTTAndEqual_withMont(a, index);
+  // rvv_ext_step4_qiNTTAndEqual_withMont(a, index);
   // rvv_ext_step4_qiNTTAndEqual_withBar(a, index);
 #endif
 }
@@ -2024,6 +2025,23 @@ Context::sampleGauss(uint64_t *res, long l, long k)
 void
 Context::sampleZO(uint64_t *res, long s, long l, long k)
 {
+#if defined CONFIG_LIB_SO
+    // TODO: finish it
+    assert(0);    
+#elif defined CONFIG_LIB_HO
+    for (long i = 0; i < N; ++i) {
+        long zo = (rand() % 2) == 0 ? 0 : (rand() % 2) ? 1 : -1;
+        for (long j = 0; j < l; ++j) {
+            uint64_t *resj = res + (j << logN);
+            resj[i]        = modbyq(zo, qVec[j]);
+        }
+        for (long j = 0; j < k; ++j) {
+            uint64_t *resj = res + ((j + l) << logN);
+            resj[i]        = modbyq(zo, pVec[j]);
+        }
+    }
+#elif defined CONFIG_LIB_MAX
+#else
     for (long i = 0; i < N; ++i) {
         long zo = (rand() % 2) == 0 ? 0 : (rand() % 2) ? 1 : -1;
         for (long j = 0; j < l; ++j) {
@@ -2035,6 +2053,7 @@ Context::sampleZO(uint64_t *res, long s, long l, long k)
             resj[i]        = zo >= 0 ? zo : pVec[j] + zo;
         }
     }
+#endif
 }
 
 void

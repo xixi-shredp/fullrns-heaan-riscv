@@ -28,9 +28,9 @@ main(int argc, const char *argv[])
         bool need_check = false;
         bool test_sota  = false;
         long logN       = -1;
-        long logQ       = -1;
+        long logQ       = 30;
         string case_name;
-        long nr_thread = -1;
+        long nr_thread = 1;
     } global_conf;
 
     decltype(TestScheme::testEncodeBatch) *case_ptr;
@@ -88,9 +88,9 @@ main(int argc, const char *argv[])
         TestScheme test;
         test.testSOTA(global_conf.logN, global_conf.logQ);
     } else {
-        void testCase(bool need_check, long logN, string case_name,
+        void testCase(bool need_check, long logN, long logp, string case_name,
                       long nr_thread);
-        testCase(global_conf.need_check, global_conf.logN,
+        testCase(global_conf.need_check, global_conf.logN, global_conf.logQ,
                  global_conf.case_name, global_conf.nr_thread);
     }
 

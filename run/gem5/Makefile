@@ -1,6 +1,6 @@
 TARGET        ?= ../FRNSHEAAN-gem5-riscv64
 # TARGET        ?= ~/ysyx/ysyx-workbench/am-kernels/tests/riscv-vector-tests-am/repo/out/v128x64user/bin/stage2/vse64_v-0
-TARGET_OPTION ?= --check --logN 10 --case rvv_ext_ori_bar
+TARGET_OPTION ?= --check --logN 10 --logQ 30 --case rvv_ext_ori_bar
 
 # sota cases
 # TARGET_OPTION ?= --check --logN 11 --logQ 30

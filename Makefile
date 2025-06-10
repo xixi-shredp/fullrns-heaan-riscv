@@ -5,13 +5,13 @@ include ./scripts/filelist.mk
 
 RESULT_DIR = ./result
 
-TEST_LOGN ?= 11
-TEST_CASE ?= rvv_ext_step4_mont
+TEST_LOGN ?= 12
+TEST_CASE ?= ext_ori_bar
 
 # Test Case
 TEST_OPTION ?= --check --logN $(TEST_LOGN) --case $(TEST_CASE)
 RESULT_FILE ?= $(RESULT_DIR)/$(ARCH)/$(TEST_LOGN)/$(TEST_CASE).out
-$(shell mkdir -p ./result/$(ARCH)-noxt/$(TEST_LOGN))
+$(shell mkdir -p ./result/$(ARCH)/$(TEST_LOGN))
 
 include ./scripts/build.mk
 
@@ -28,5 +28,8 @@ clean:
 
 mod_test:
 	make -C scripts -f mod_test.mk run
+
+threadpool_test:
+	make -C scripts -f threadpool-test.mk run
 
 .PHONY: menuconfig clean $(RESULT_DIR)

@@ -25,6 +25,7 @@
 
 #define set_mod(src1, src2) RTypeInst(0x0, 0x0, src1, src2)
 #define mod(src1) RTypeInst(0x1, 0x0, src1, 0)
+#define modbyq(src1,src2) RTypeInst(0x1, 0x0, src1, src2)
 #define addmod(src1, src2) RTypeInst(0x2, 0x0, src1, src2)
 #define submod(src1, src2) RTypeInst(0x2, 0x1, src1, src2)
 #define mont_redc(src1, src2) RTypeInst(0x3, 0x0, src1, src2)

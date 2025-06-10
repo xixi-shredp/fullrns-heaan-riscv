@@ -13,7 +13,31 @@ config QEMU_RISCV
   bool "Qemu-Riscv"
 endchoice
 
+config TEST_LIB
+  bool "Test for lib"
+  default n
+
+if TEST_LIB
+choice
+  prompt "Optimize Level"
+  default LIB_None
+config LIB_None
+  bool "no optimization"
+if !NATIVE
+config LIB_SO
+  bool "software optimization"
+endif
+if GEM5_RISCV
+config LIB_HO
+  bool "hardware optimization"
+config LIB_MAX
+  bool "Max Optimization Level: with SO and HO"
+endif
+endchoice
+endif
+
 config TEST_SOTA
+  depends on !TEST_LIB
   bool "Test for SOTA"
   default n
 

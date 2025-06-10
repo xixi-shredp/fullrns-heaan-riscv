@@ -21,7 +21,11 @@ lib: $(TARGET_LIB)
 
 
 BIN = ./run/FRNSHEAAN-$(ARCH)
+ifeq ($(CONFIG_TEST_LIB),)
 RUN_CPP = ./run/main-opt.cpp ./run/test_case.cpp
+else
+RUN_CPP = ./run/main.cpp
+endif
 
 $(BIN): $(RUN_CPP) $(TARGET_LIB)
 	@echo '  [CXX] $< -> $@'

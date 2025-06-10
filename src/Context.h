@@ -15,6 +15,7 @@
 
 #include "Common.h"
 #include "Numb.h"
+#include "ThreadPool.h"
 
 #define Q0_BIT_SIZE 61
 
@@ -24,6 +25,7 @@ static string LOGARITHM = "Logarithm"; ///< log(x)
 static string EXPONENT  = "Exponent";  ///< exp(x)
 static string SIGMOID   = "Sigmoid";   ///< sigmoid(x) = exp(x) / (1 + exp(x))
 
+static int MaxThread = 4;
 class Context
 {
   public:
@@ -142,14 +144,21 @@ class Context
     uint64_t **nttBarPres;
     //
 
+    thread_pool_t* thread_pool;
+
     void origin_qiNTTAndEqual_withBar(uint64_t *a, long index);
     void origin_qiNTTAndEqual_withMont(uint64_t *a, long index);
     void ref_qiNTTAndEqual(uint64_t *a, long index);
+
 #ifdef CONFIG_RVV
     void rvv_ori_qiNTTAndEqual_withBar(uint64_t *a, long index);
     void rvv_ori_qiNTTAndEqual_withMont(uint64_t *a, long index);
     void rvv_step4_qiNTTAndEqual_withBar(uint64_t *a, long index);
     void rvv_step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
+    void mt_rvv_ori_qiNTTAndEqual_withBar(uint64_t *a, long index);
+    void mt_rvv_ori_qiNTTAndEqual_withMont(uint64_t *a, long index);
+    void mt_rvv_step4_qiNTTAndEqual_withBar(uint64_t *a, long index);
+    void mt_rvv_step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
 #endif
 
 #ifdef CONFIG_FHE_EXT
@@ -162,11 +171,16 @@ class Context
     void rvv_ext_step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
     void rvv_ext_ori_qiNTTAndEqual_withBar(uint64_t *a, long index);
     void rvv_ext_ori_qiNTTAndEqual_withMont(uint64_t *a, long index);
+    void mt_rvv_ext_step4_qiNTTAndEqual_withBar(uint64_t *a, long index);
+    void mt_rvv_ext_step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
+    void mt_rvv_ext_ori_qiNTTAndEqual_withBar(uint64_t *a, long index);
+    void mt_rvv_ext_ori_qiNTTAndEqual_withMont(uint64_t *a, long index);
     #endif
 #endif
 
     Context(long logN, long logp, long L, long K, long h = 64,
             double sigma = 3.2);
+    virtual ~Context();
 
     void arrayBitReverse(complex<double> *vals, const long size);
     void arrayBitReverse(uint64_t *vals, const long size);

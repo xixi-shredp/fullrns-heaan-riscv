@@ -37,27 +37,31 @@ class MyTask(TaskThread):
     logN: int
     bar: bool
     rvv: bool
+    mt: bool
     ext: bool
     step: bool
     args = {
         "arch": ["gem5-riscv64"],
         "logN": [11, 12, 13, 14, 15, 16],
-        "bar": [True, False],
-        "rvv": [True, False],
-        "step": [True, False],
-        "ext": [True, False],
+        "bar": [True],
+        "rvv": [True],
+        "mt": [False],
+        "step": [False],
+        "ext": [True],
     }
     parallel = True
     slient = False
 
     def arg_init(self) -> None:
-        self.cfg_prompt = f"logN={self.logN}, bar={self.bar}, rvv={self.rvv}, ext={self.ext}, step={self.step}"
+        self.cfg_prompt = f"logN={self.logN}, bar={self.bar}, mt={self.mt}, rvv={self.rvv}, ext={self.ext}, step={self.step}"
         self.error_prompt = fg.red("stop task: " + self.cfg_prompt)
         self.start_prompt = fg.yellow("start task: " + self.cfg_prompt)
         self.finish_prompt = fg.green("finish task: " + self.cfg_prompt)
         case_name = ""
+        if self.mt:
+            case_name += "mt_"
         if self.rvv:
-            case_name = "rvv_"
+            case_name += "rvv_"
         if self.ext:
             case_name += "ext_"
         if self.step:
@@ -240,15 +244,16 @@ if __name__ == "__main__":
     def vector_regress(t: MyTask):
         t.args["rvv"] = [True]
 
-    # task = MyTask()
+    task = MyTask()
     # vector_regress(task)
-    # task.set_task([MyTask.gem5_run])
+
+    task.set_task([MyTask.gem5_run])
 
     # task = ModTest()
     # task.set_task([ModTest.run])
 
-    task = RiseTest()
-    task.set_task([RiseTest.run])
+    # task = RiseTest()
+    # task.set_task([RiseTest.run])
 
     my = TaskDispatcher(task)
     my.start()

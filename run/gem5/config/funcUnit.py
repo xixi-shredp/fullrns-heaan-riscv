@@ -30,7 +30,22 @@ class IntMod(FUDesc):
         OpDesc(opClass="FHEMontMulMod", opLat=8),
         OpDesc(opClass="FHEBarMulMod", opLat=6),
     ]
-    count = 1
+    count = 0
+
+class IntModAdd(FUDesc):
+    opList = [
+        OpDesc(opClass="FHEMod"),
+        OpDesc(opClass="FHEAddMod", opLat=2),
+    ]
+    count = 2
+
+class IntModMul(FUDesc):
+    opList = [
+        OpDesc(opClass="FHEMod"),
+        OpDesc(opClass="FHEMontMulMod", opLat=8),
+        OpDesc(opClass="FHEBarMulMod", opLat=6),
+    ]
+    count = 2
 
 class VFPU(FUDesc):
     opList = [
@@ -44,20 +59,23 @@ class VFPU(FUDesc):
         OpDesc(opClass="FloatDiv", opLat=12, pipelined=False),
         OpDesc(opClass="FloatSqrt", opLat=24, pipelined=False),
         # Simd FHE 
-        OpDesc(opClass="SimdFHEMod", opLat=5),
-        OpDesc(opClass="SimdFHEMontMulMod", opLat=11),
-        OpDesc(opClass="SimdFHEBarMulMod", opLat=9),
+        OpDesc(opClass="SimdFHEMod", opLat=4),
+        OpDesc(opClass="SimdFHEMod", opLat=4),
+        OpDesc(opClass="SimdFHEMontMulMod", opLat=10),
+        OpDesc(opClass="SimdFHEBarMulMod", opLat=8),
+        OpDesc(opClass="SimdFHEMontMulMod", opLat=10),
+        OpDesc(opClass="SimdFHEBarMulMod", opLat=8),
         # Simd
-        OpDesc(opClass="SimdAdd", opLat=4),
+        OpDesc(opClass="SimdAdd", opLat=3),
         OpDesc(opClass="SimdAddAcc", opLat=4),
-        OpDesc(opClass="SimdAlu", opLat=4),
-        OpDesc(opClass="SimdCmp", opLat=4),
-        OpDesc(opClass="SimdCvt", opLat=4),
+        OpDesc(opClass="SimdAlu", opLat=3),
+        OpDesc(opClass="SimdCmp", opLat=3),
+        OpDesc(opClass="SimdCvt", opLat=3),
         OpDesc(opClass="SimdMisc", opLat=4),
         OpDesc(opClass="SimdMult", opLat=4),
         OpDesc(opClass="SimdMultAcc", opLat=4),
         OpDesc(opClass="SimdMatMultAcc", opLat=4),
-        OpDesc(opClass="SimdShift", opLat=4),
+        OpDesc(opClass="SimdShift", opLat=3),
         OpDesc(opClass="SimdShiftAcc", opLat=4),
         OpDesc(opClass="SimdDiv", opLat=25),
         OpDesc(opClass="SimdSqrt", opLat=25),
@@ -76,22 +94,16 @@ class VFPU(FUDesc):
         OpDesc(opClass="SimdReduceCmp", opLat=4),
         OpDesc(opClass="SimdFloatReduceAdd", opLat=4),
         OpDesc(opClass="SimdFloatReduceCmp", opLat=4),
-        OpDesc(opClass="SimdExt", opLat=4),
+        OpDesc(opClass="SimdExt", opLat=3),
         OpDesc(opClass="SimdFloatExt", opLat=4),
         OpDesc(opClass="SimdConfig"),
     ]
-    count = 2
+    count = 4
 
 class LoadPipe(FUDesc):
     opList = [
         OpDesc(opClass="MemRead"),
         OpDesc(opClass="FloatMemRead"),
-        OpDesc(opClass="SimdUnitStrideLoad"),
-        OpDesc(opClass="SimdUnitStrideMaskLoad"),
-        OpDesc(opClass="SimdStridedLoad"),
-        OpDesc(opClass="SimdIndexedLoad"),
-        OpDesc(opClass="SimdUnitStrideFaultOnlyFirstLoad"),
-        OpDesc(opClass="SimdWholeRegisterLoad"),
     ]
     count = 1
 
@@ -99,6 +111,17 @@ class StorePipe(FUDesc):
     opList = [
         OpDesc(opClass="MemWrite"),
         OpDesc(opClass="FloatMemWrite"),
+    ]
+    count = 2
+
+class VLSU(FUDesc):
+    opList = [
+        OpDesc(opClass="SimdUnitStrideLoad"),
+        OpDesc(opClass="SimdUnitStrideMaskLoad"),
+        OpDesc(opClass="SimdStridedLoad"),
+        OpDesc(opClass="SimdIndexedLoad"),
+        OpDesc(opClass="SimdUnitStrideFaultOnlyFirstLoad"),
+        OpDesc(opClass="SimdWholeRegisterLoad"),
         OpDesc(opClass="SimdUnitStrideStore"),
         OpDesc(opClass="SimdUnitStrideMaskStore"),
         OpDesc(opClass="SimdStridedStore"),
@@ -115,6 +138,9 @@ class C910FUPool(FUPool):
         IntALUMult(),
         IntALUDiv(),
         IntMod(),
+        IntModAdd(),
+        IntModMul(),
         VFPU(),
+        VLSU()
     ]
 
