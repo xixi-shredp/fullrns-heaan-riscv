@@ -2,6 +2,7 @@
 #include "ThreadPool.h"
 #include <cstddef>
 #include <cstdint>
+#include <cassert>
 
 #ifdef CONFIG_RVV
   #include "RVVUtil.h"
@@ -31,12 +32,10 @@ mth_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1, uint64_t q,
  * */
 static inline void
 rvv_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
-                          uint64_t q, uint64_t *qRootPows, uint64_t *barPres)
+                          uint64_t q, uint64_t *qRootPows, uint64_t *barPres, long vl)
 {
   // vlen_check();
 
-  long res_vl = vsetvli(t, 64, 4);
-  // printf("vl set %ld , get %ld\n", t, res_vl);
   for (long i = 0; i < m; i++) {
     long op_len = t;
     long j1 = i << logt1;
@@ -45,7 +44,9 @@ rvv_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
     uint64_t R = barPres[m + i];
 
     uint64_t *va = a + j1;
-    while (op_len > 0) {
+    // printf("op_len: %ld\n", op_len);
+    // assert(op_len > 0);
+    // while (op_len > 0) {
       /// load
       vle_v(v4, va + t); // T = a[j + t];
       vle_v(v16, va);    // a[j];
@@ -86,9 +87,9 @@ rvv_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
       vse_v(v4, va + t); // a[j + t];
       vse_v(v16, va);    // a[j];
 
-      va += res_vl;
-      op_len -= res_vl;
-    }
+      va += vl;
+      op_len -= vl;
+    // }
   }
 }
 
@@ -97,18 +98,19 @@ rvv_mth_op1_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
  * */
 static inline void
 rvv_mth_op2_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
-                          uint64_t q, uint64_t *qRootPows, uint64_t *barPres)
+                          uint64_t q, uint64_t *qRootPows, uint64_t *barPres, long vl)
 {
   long op_len = m;
-  long res_vl = vsetvli(op_len, 64, 4);
 
   long stride = t * 2 * sizeof(uint64_t);
 
   uint64_t *oa = a;
-  long oa_stride = res_vl * t * 2;
+  long oa_stride = vl * t * 2;
 
   long b_stride = m;
-  while (op_len > 0) {
+
+  // assert(op_len > 0);
+  // while (op_len > 0) {
     // printf("op_len:%3ld res_vl:%3ld t:%3ld\n", op_len, res_vl, t);
     vle_v(v4, qRootPows + b_stride); // v4 = W[m + i];
     vle_v(v8, barPres + b_stride);   // v8 = R[m + i];
@@ -157,11 +159,11 @@ rvv_mth_op2_rowNTTWithBar(uint64_t m, uint64_t *a, long t, long logt1,
       vsse_v(v24, va, stride);     // a[j];
 
       va++;
-    }
+    // }
 
-    op_len -= res_vl;
+    op_len -= vl;
     oa += oa_stride;
-    b_stride += res_vl;
+    b_stride += vl;
   }
 }
 
@@ -194,9 +196,8 @@ mth_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1, uint64_t q,
  * */
 static inline void
 rvv_mth_op1_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
-                           uint64_t q, uint64_t qInv, uint64_t *qRootScalePows)
+                           uint64_t q, uint64_t qInv, uint64_t *qRootScalePows, long vl)
 {
-  long res_vl = vsetvli(t, 64, 4);
   // printf("vl set %ld , get %ld\n", t, res_vl);
   // vmv_v_x(v20, q);
   for (long i = 0; i < m; i++) {
@@ -248,8 +249,8 @@ rvv_mth_op1_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
 
       vse_v(v16, va); // a[j];
 
-      va += res_vl;
-      op_len -= res_vl;
+      va += vl;
+      op_len -= vl;
     }
   }
 }
@@ -259,16 +260,16 @@ rvv_mth_op1_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
  * */
 static inline void
 rvv_mth_op2_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
-                           uint64_t q, uint64_t qInv, uint64_t *qRootScalePows)
+                           uint64_t q, uint64_t qInv, uint64_t *qRootScalePows, long vl)
 {
   long stride = t * 2 * sizeof(uint64_t);
 
   long op_len = m;
-  long res_vl = vsetvli(op_len, 64, 4);
+  // long res_vl = vsetvli(op_len, 64, 4);
   // printf("vl set %ld , get %ld\n", m, res_vl);
 
   uint64_t *oa = a;
-  long oa_stride = res_vl * t * 2;
+  long oa_stride = vl * t * 2;
 
   long b_stride = m;
   while (op_len > 0) {
@@ -319,9 +320,9 @@ rvv_mth_op2_rowNTTWithMont(uint64_t m, uint64_t *a, long t, long logt1,
       va++;
     }
 
-    op_len -= res_vl;
+    op_len -= vl;
     oa += oa_stride;
-    b_stride += res_vl;
+    b_stride += vl;
   }
 }
 
@@ -330,24 +331,39 @@ rvv_rowNTTWithBar(uint64_t *a, long N, long logN, uint64_t q, uint64_t qInv,
                   uint64_t *qRootPows, uint64_t *qRootScalePows,
                   uint64_t *barPres)
 {
+  // long t = N;
+  // long logt1 = logN + 1;
+  //
+  // for (long m = 1; m < N; m <<= 1) {
+  //   t >>= 1;
+  //   logt1 -= 1;
+  //   // rvv_diff_init();
+  //   //
+  //   if (t >= 8) {
+  //       rvv_mth_op1_rowNTTWithBar(m, a, t, logt1, q, qRootPows,
+  //       barPres);
+  //   } else {
+  //       rvv_mth_op2_rowNTTWithBar(m, a, t, logt1, q, qRootPows,
+  //       barPres);
+  //       // rvv_mth_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
+  //   }
+  //   // rvv_diff(mth_rowNTTWithBar(m, bx, t, logt1, q, qRootPows, barPres));
+  //   // rvv_mth_op1_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
+  // }
+
   long t = N;
   long logt1 = logN + 1;
-
-  for (long m = 1; m < N; m <<= 1) {
+  long vl = vsetvli(-1, 64, 4);
+  // printf("vl: %ld\n", vl);
+  for (long m = 1; m < (N / 8); m <<= 1) {
     t >>= 1;
     logt1 -= 1;
-    // rvv_diff_init();
-    //
-    // if (t >= 8) {
-    //     rvv_mth_op1_rowNTTWithBar(m, a, t, logt1, q, qRootPows,
-    //     barPres);
-    // } else {
-    //     rvv_mth_op2_rowNTTWithBar(m, a, t, logt1, q, qRootPows,
-    //     barPres);
-    //     // rvv_mth_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
-    // }
-    // rvv_diff(mth_rowNTTWithBar(m, bx, t, logt1, q, qRootPows, barPres));
-    rvv_mth_op1_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres);
+    rvv_mth_op1_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres, vl);
+  }
+  for (long m = (N / 8); m < N; m <<= 1) {
+    t >>= 1;
+    logt1 -= 1;
+    rvv_mth_op2_rowNTTWithBar(m, a, t, logt1, q, qRootPows, barPres, vl);
   }
 }
 
@@ -358,25 +374,33 @@ rvv_rowNTTWithMont(uint64_t *a, long N, long logN, uint64_t q, uint64_t qInv,
 {
   long t = N;
   long logt1 = logN + 1;
+  long vl = vsetvli(-1, 64, 4);
 
-  for (long m = 1; m < N; m <<= 1) {
+  // for (long m = 1; m < N; m <<= 1) {
+  //   t >>= 1;
+  //   logt1 -= 1;
+  //   // rvv_diff_init();
+  //
+  //   if (t >= 8) {
+  //       rvv_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv,
+  //                                  qRootScalePows, vl);
+  //       // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
+  //   } else {
+  //       rvv_mth_op2_rowNTTWithMont(m, a, t, logt1, q, qInv,
+  //                                  qRootScalePows, vl);
+  //       // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
+  //   }
+  //   // rvv_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows, vl);
+  // }
+  for (long m = 1; m < (N / 8); m <<= 1) {
     t >>= 1;
     logt1 -= 1;
-    // rvv_diff_init();
-
-    // if (t >= 8) {
-    //     rvv_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv,
-    //                                qRootScalePows);
-    //     // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
-    // } else {
-    //     rvv_mth_op2_rowNTTWithMont(m, a, t, logt1, q, qInv,
-    //                                qRootScalePows);
-    //     // mth_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
-    // }
-    rvv_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows);
-    /// FIXME: Gem5 can not run op2,but qemu and xuantie-910 can.
-    // rvv_diff(mth_rowNTTWithMont(m, bx, t, logt1, q, qInv,
-    // qRootScalePows));
+    rvv_mth_op1_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows, vl);
+  }
+  for (long m = (N / 8); m < N; m <<= 1) {
+    t >>= 1;
+    logt1 -= 1;
+    rvv_mth_op2_rowNTTWithMont(m, a, t, logt1, q, qInv, qRootScalePows, vl);
   }
 }
 
@@ -450,35 +474,35 @@ rvv_rowMulWithMont(long rowIdx, long rowSz, long logRowSz, uint64_t *src,
   }
 }
 
-  #define RVV_ROW_NTT_Barrett(a, s, N)                                        \
-    {                                                                         \
-      uint64_t *a1 = a + (i << log##N);                                       \
-      rvv_rowNTTWithBar(a1, N, log##N, q, qInv, s4ntt_##s##_qRootPows[index], \
-                        s4ntt_##s##_qRootScalePows[index],                    \
-                        s4ntt_##s##BarPres[index]);                           \
+  #define RVV_ROW_NTT_Barrett(a, s, N, mod)                                                \
+    {                                                                                      \
+      uint64_t *a1 = a + (i << log##N);                                                    \
+      rvv_rowNTTWithBar(a1, N, log##N, mod , mod##Inv, s4ntt_##s##_##mod##RootPows[index], \
+                        s4ntt_##s##_##mod##RootScalePows[index],                           \
+                        s4ntt_##mod##s##BarPres[index]);                                        \
     }
-  #define RVV_ROW_MUL_Barrett                                              \
-    rvv_rowMulWithBar(i, N2, logN2, a, wmatrix_scalepows[index],           \
-                      wmatrix_pows[index], s4ntt_wmatrixBarPres[index], q, \
-                      qInv);
+  #define RVV_ROW_MUL_Barrett(mod)                                                  \
+    rvv_rowMulWithBar(i, N2, logN2, a, mod##Wmatrix_scalepows[index],               \
+                      mod##Wmatrix_pows[index], s4ntt_##mod##WmatrixBarPres[index], \
+                      mod, mod##Inv);
 
-  #define RVV_ROW_NTT_Montgomeny(a, s, N)                             \
-    {                                                                 \
-      uint64_t *a1 = a + (i << log##N);                               \
-      rvv_rowNTTWithMont(a1, N, log##N, q, qInv,                      \
-                         s4ntt_##s##_qRootPows[index],                \
-                         s4ntt_##s##_qRootScalePows[index], nullptr); \
+  #define RVV_ROW_NTT_Montgomeny(a, s, N, mod)                              \
+    {                                                                       \
+      uint64_t *a1 = a + (i << log##N);                                     \
+      rvv_rowNTTWithMont(a1, N, log##N, mod, mod##Inv,                      \
+                         s4ntt_##s##_##mod##RootPows[index],                \
+                         s4ntt_##s##_##mod##RootScalePows[index], nullptr); \
     }
-  #define RVV_ROW_MUL_Montgomeny                                           \
-    rvv_rowMulWithMont(i, N2, logN2, a, wmatrix_scalepows[index], nullptr, \
-                       nullptr, q, qInv);
+  #define RVV_ROW_MUL_Montgomeny(mod)                                           \
+    rvv_rowMulWithMont(i, N2, logN2, a, mod##Wmatrix_scalepows[index], nullptr, \
+                       nullptr, mod, mod##Inv);
 
 STEP4NTT_TEMPLATE_IMPLEMENT(rvv_step4_qiNTTAndEqual_withBar,
                             RVV_ROW_MUL_Barrett, RVV_ROW_NTT_Barrett,
-                            NO_SET_MOD);
+                            NO_SET_MOD, q);
 STEP4NTT_TEMPLATE_IMPLEMENT(rvv_step4_qiNTTAndEqual_withMont,
                             RVV_ROW_MUL_Montgomeny, RVV_ROW_NTT_Montgomeny,
-                            NO_SET_MOD);
+                            NO_SET_MOD, q);
 
 void
 Context::rvv_ori_qiNTTAndEqual_withBar(uint64_t *a, long index)
@@ -486,7 +510,7 @@ Context::rvv_ori_qiNTTAndEqual_withBar(uint64_t *a, long index)
   uint64_t q = qVec[index];
   uint64_t qInv = qInvVec[index];
   rvv_rowNTTWithBar(a, N, logN, q, qInv, qRootPows[index], nullptr,
-                    nttBarPres[index]);
+                    qNTTBarPres[index]);
 }
 
 void
@@ -498,22 +522,52 @@ Context::rvv_ori_qiNTTAndEqual_withMont(uint64_t *a, long index)
                      nullptr);
 }
 
+void
+Context::rvv_ori_piNTTAndEqual_withBar(uint64_t *a, long index)
+{
+  uint64_t p = pVec[index];
+  uint64_t pInv = pInvVec[index];
+  rvv_rowNTTWithBar(a, N, logN, p, pInv, pRootPows[index], nullptr,
+                    pNTTBarPres[index]);
+}
+
+void
+Context::rvv_ori_piNTTAndEqual_withMont(uint64_t *a, long index)
+{
+  uint64_t p = pVec[index];
+  uint64_t pInv = pInvVec[index];
+  rvv_rowNTTWithMont(a, N, logN, p, pInv, nullptr, pRootScalePows[index],
+                     nullptr);
+}
+
 static mt_rvv_step_args_t global_args;
 
 // ====== Multi-Threading Accelaration For rvv_step4_bar =======
 
-Step4NTTCol_FUNC_Def(rvv_step4_bar, global_args, rvv_rowNTTWithBar);
-Step4NTTRowMulNTT_FUNC_Def(rvv_step4_bar, global_args, rvv_rowMulWithBar,
-                           rvv_rowNTTWithBar);
+Step4NTTCol_FUNC_Def(q_rvv_step4_bar, global_args, rvv_rowNTTWithBar, q);
+Step4NTTRowMulNTT_FUNC_Def(q_rvv_step4_bar, global_args, rvv_rowMulWithBar,
+                           rvv_rowNTTWithBar, q);
 MT_STEP4NTT_TEMPLATE_IMPLEMENT(mt_rvv_step4_qiNTTAndEqual_withBar,
-                               rvv_step4_bar, NO_SET_MOD, global_args);
+                               q_rvv_step4_bar, NO_SET_MOD, global_args, q);
+
+Step4NTTCol_FUNC_Def(p_rvv_step4_bar, global_args, rvv_rowNTTWithBar, p);
+Step4NTTRowMulNTT_FUNC_Def(p_rvv_step4_bar, global_args, rvv_rowMulWithBar,
+                           rvv_rowNTTWithBar, p);
+MT_STEP4NTT_TEMPLATE_IMPLEMENT(mt_rvv_step4_piNTTAndEqual_withBar,
+                               p_rvv_step4_bar, NO_SET_MOD, global_args, p);
 
 // ====== Multi-Threading Accelaration For rvv_step4_mont =======
-Step4NTTCol_FUNC_Def(rvv_step4_mont, global_args, rvv_rowNTTWithMont);
-Step4NTTRowMulNTT_FUNC_Def(rvv_step4_mont, global_args, rvv_rowMulWithMont,
-                           rvv_rowNTTWithMont);
+Step4NTTCol_FUNC_Def(q_rvv_step4_mont, global_args, rvv_rowNTTWithMont, q);
+Step4NTTRowMulNTT_FUNC_Def(q_rvv_step4_mont, global_args, rvv_rowMulWithMont,
+                           rvv_rowNTTWithMont, q);
 MT_STEP4NTT_TEMPLATE_IMPLEMENT(mt_rvv_step4_qiNTTAndEqual_withMont,
-                               rvv_step4_mont, NO_SET_MOD, global_args);
+                               q_rvv_step4_mont, NO_SET_MOD, global_args, q);
+
+Step4NTTCol_FUNC_Def(p_rvv_step4_mont, global_args, rvv_rowNTTWithMont, p);
+Step4NTTRowMulNTT_FUNC_Def(p_rvv_step4_mont, global_args, rvv_rowMulWithMont,
+                           rvv_rowNTTWithMont, p);
+MT_STEP4NTT_TEMPLATE_IMPLEMENT(mt_rvv_step4_piNTTAndEqual_withMont,
+                               p_rvv_step4_mont, NO_SET_MOD, global_args, p);
 
 /// ======= Used to accelerate the rowNTT for rvv_ori_bar =======
 
@@ -599,16 +653,12 @@ mt_rvv_mth_rowNTTWithBar(thread_pool_t *thread_pool, uint64_t m, uint64_t *a,
   ori_global.logt = logt1;
 
   for (long i = 0; i < m; i++) {
-    // for (long i = m-1; i >= 0; i--) {
-    // mt_rvv_rowNTTWithBar_work_wrapper((void *)i);
     thread_pool_add_task(thread_pool, mt_rvv_rowNTTWithBar_work_wrapper,
                          (void *)i);
-    // printf("bn: %ld\n", task_num(thread_pool));
   }
   thread_pool_wait(thread_pool);
   volatile long nr = task_num(thread_pool);
   printf("rem n: %ld\n", nr);
-  // printf("once\n");
 }
 
 void
@@ -621,7 +671,7 @@ Context::mt_rvv_ori_qiNTTAndEqual_withBar(uint64_t *a, long index)
   ori_global.q = q;
   ori_global.data = a;
   ori_global.qRootPows = qRootPows[index];
-  ori_global.barPres = nttBarPres[index];
+  ori_global.barPres = qNTTBarPres[index];
 
   for (long m = 1; m < N; m <<= 1) {
     t >>= 1;

@@ -20,12 +20,41 @@ $(TARGET_LIB): $(OBJS)
 lib: $(TARGET_LIB)
 
 
-BIN = ./run/FRNSHEAAN-$(ARCH)
 ifeq ($(CONFIG_TEST_LIB),)
 RUN_CPP = ./run/main-opt.cpp ./run/test_case.cpp
 else
 RUN_CPP = ./run/main.cpp
 endif
+
+BIN := ./run/FRNSHEAAN-$(ARCH)
+ifneq ($(CONFIG_NTT_OP_SO),)
+	BIN := $(BIN)-SO
+else
+ifneq ($(CONFIG_NTT_OP_HO),)
+	BIN := $(BIN)-HO
+else
+ifneq ($(CONFIG_NTT_OP_CO),)
+	BIN := $(BIN)-CO
+endif
+endif
+endif
+
+ifneq ($(CONFIG_NTT_BAR),)
+ifneq ($(CONFIG_EN_STEP4_NTT),)
+	BIN := $(BIN)-S4Bar
+else
+	BIN := $(BIN)-Bar
+endif
+else
+ifneq ($(CONFIG_NTT_MONT),)
+ifneq ($(CONFIG_EN_STEP4_NTT),)
+	BIN := $(BIN)-S4Mont
+else
+	BIN := $(BIN)-Mont
+endif
+endif
+endif
+
 
 $(BIN): $(RUN_CPP) $(TARGET_LIB)
 	@echo '  [CXX] $< -> $@'

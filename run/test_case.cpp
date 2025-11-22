@@ -43,7 +43,7 @@ isAligned(void *data, int alignment)
 #define TEST_INIT                                                   \
   TimeUtils timeutils;                                              \
   long k = L;                                                       \
-  Context context(logN, logp, L, k);                                \
+  Context context(logN, logp, L, k, 64, 3.2, q_val);                         \
   CounterUtils counter;                                             \
   uint64_t *ax =                                                    \
       (uint64_t *)aligned_malloc(context.N * sizeof(uint64_t), 64); \
@@ -55,9 +55,9 @@ isAligned(void *data, int alignment)
   }                                                                 \
   srand(time(NULL));                                                \
   for (int i = 0; i < context.N; ++i) {                             \
-    ori[i] = rand() % context.pVec[0];                              \
-    ax[i] = ori[i];                                                 \
+    ax[i] = ori[i] = 0;                                             \
   }
+    // ori[i] = rand() % context.pVec[0];                              \
 
 #define TEST(code)         \
   timeutils.start("test"); \
@@ -126,14 +126,14 @@ isAligned(void *data, int alignment)
   #define CASES(_) BASE_CASES(_)
 #endif
 
-#define TEST_FUNC_DECLARE(name, func)                                      \
-  void test_##name(bool diff, long logN, long L, long logp, long logSlots) \
-  {                                                                        \
-    TEST_INIT;                                                             \
-    TEST(context.func(ax, 0));                                             \
-    if (!diff) return;                                                     \
-    TEST_DIFF();                                                           \
-    return;                                                                \
+#define TEST_FUNC_DECLARE(name, func)                                                  \
+  void test_##name(bool diff, long logN, long L, long logp, long logSlots, long q_val) \
+  {                                                                                    \
+    TEST_INIT;                                                                         \
+    TEST(context.func(ax, 0));                                                         \
+    if (!diff) return;                                                                 \
+    TEST_DIFF();                                                                       \
+    return;                                                                            \
   }
 
 #define MAP_DEFINE(name, func) {#name, test_##name},
@@ -145,7 +145,7 @@ typedef decltype(test_ori_bar) ntt_func_t;
 
 void
 testCase(bool need_check, long logN, long logp, string case_name,
-         long nr_thread)
+         long q_val)
 {
 
   ntt_func_t *case_func;
@@ -161,5 +161,5 @@ testCase(bool need_check, long logN, long logp, string case_name,
   } else {
     case_func = cur_case->second;
   }
-  case_func(need_check, logN, L, logp, logSlots);
+  case_func(need_check, logN, L, logp, logSlots, q_val);
 }

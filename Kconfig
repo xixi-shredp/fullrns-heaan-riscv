@@ -13,39 +13,40 @@ config QEMU_RISCV
   bool "Qemu-Riscv"
 endchoice
 
-config TEST_LIB
-  bool "Test for lib"
-  default n
-
-if TEST_LIB
 choice
-  prompt "Optimize Level"
-  default LIB_None
-config LIB_None
+  prompt "NTT Optimize Level"
+  default NTT_OP_CO
+config NTT_OP_NONE
   bool "no optimization"
-if !NATIVE
-config LIB_SO
-  bool "software optimization"
-endif
-if GEM5_RISCV
-config LIB_HO
-  bool "hardware optimization"
-config LIB_MAX
-  bool "Max Optimization Level: with SO and HO"
-endif
+config NTT_OP_SO
+  bool "SO: software optimization"
+config NTT_OP_HO
+  bool "HO: hardware optimization"
+config NTT_OP_CO
+  bool "Co: software and hardware optimization"
 endchoice
-endif
 
-config TEST_SOTA
-  depends on !TEST_LIB
-  bool "Test for SOTA"
-  default n
+choice
+  prompt "MulMod Algo. in NTT"
+  default NTT_BAR
+config NTT_MONT
+  bool "Montgomery REDC"
+config NTT_BAR
+  bool "Barrett"
+endchoice
 
-if TEST_SOTA
-  config TEST_BASELINE
-    bool "Use Baseline"
-    default n
-endif
+config EN_STEP4_NTT
+  bool "Enable Step4 NTT"
+  default y
+
+choice
+  prompt "Test Entry"
+  default TEST_OPT
+config TEST_LIB
+  bool "Test for lib (use main.cpp)"
+config TEST_OPT
+  bool "Test for SOTA (use main-opt.cpp)"
+endchoice
 
 config ARCH
   string

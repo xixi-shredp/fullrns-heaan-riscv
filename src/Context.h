@@ -124,31 +124,67 @@ class Context
     long logN1;
     long logN2;
 
-    uint64_t **qRootAllPows;
-    // uint64_t*** wmatrix_scalepows;
-    uint64_t **wmatrix_scalepows;
-    uint64_t **wmatrix_pows;
-
+    uint64_t **qNTTBarPres;
     uint64_t *s4ntt_row_qRoots;
     uint64_t *s4ntt_col_qRoots;
     uint64_t **s4ntt_row_qRootPows;
     uint64_t **s4ntt_col_qRootPows;
     uint64_t **s4ntt_row_qRootScalePows;
     uint64_t **s4ntt_col_qRootScalePows;
+    uint64_t **qRootAllPows;
+    uint64_t **qWmatrix_pows;
+    uint64_t **qWmatrix_scalepows;
+    uint64_t **s4ntt_qrowBarPres;
+    uint64_t **s4ntt_qcolBarPres;
+    uint64_t **s4ntt_qWmatrixBarPres;
+
+    uint64_t **pNTTBarPres;
+    uint64_t *s4ntt_row_pRoots;
+    uint64_t *s4ntt_col_pRoots;
+    uint64_t **s4ntt_row_pRootPows;
+    uint64_t **s4ntt_col_pRootPows;
+    uint64_t **s4ntt_row_pRootScalePows;
+    uint64_t **s4ntt_col_pRootScalePows;
+    uint64_t **pRootAllPows;
+    uint64_t **pWmatrix_pows;
+    uint64_t **pWmatrix_scalepows;
+    uint64_t **s4ntt_prowBarPres;
+    uint64_t **s4ntt_pcolBarPres;
+    uint64_t **s4ntt_pWmatrixBarPres;
+
     void step4_qiNTTAndEqual_withBar(uint64_t *a, long index);
     void step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
 
-    uint64_t **s4ntt_rowBarPres;
-    uint64_t **s4ntt_colBarPres;
-    uint64_t **s4ntt_wmatrixBarPres;
-    uint64_t **nttBarPres;
-    //
+    void step4_piNTTAndEqual_withBar(uint64_t *a, long index);
+    void step4_piNTTAndEqual_withMont(uint64_t *a, long index);
 
     thread_pool_t* thread_pool;
 
-    void origin_qiNTTAndEqual_withBar(uint64_t *a, long index);
-    void origin_qiNTTAndEqual_withMont(uint64_t *a, long index);
-    void ref_qiNTTAndEqual(uint64_t *a, long index);
+    /** original NTT With Montgomery REDC */
+    void origin_NTTAndEqual_withMont(uint64_t *a, long index, 
+                                     uint64_t* Vec, uint64_t* InvVec,
+                                     uint64_t** RootScalePows);
+    inline void 
+    origin_qiNTTAndEqual_withMont(uint64_t *a, long index){
+      origin_NTTAndEqual_withMont(a, index, qVec, qInvVec, qRootScalePows);
+    }
+    inline void
+    origin_piNTTAndEqual_withMont(uint64_t *a, long index){
+      origin_NTTAndEqual_withMont(a, index, pVec, pInvVec, pRootScalePows);
+    }
+
+    /** original NTT With Barrett */
+    void origin_NTTAndEqual_withBar(uint64_t *a, long index, 
+                                    uint64_t* Vec, uint64_t** RootPows, 
+                                    uint64_t** NTTBarPres);
+    inline void 
+    origin_qiNTTAndEqual_withBar(uint64_t *a, long index){
+      origin_NTTAndEqual_withBar(a, index, qVec, qRootPows, qNTTBarPres);
+    }
+    inline void
+    origin_piNTTAndEqual_withBar(uint64_t *a, long index){
+      origin_NTTAndEqual_withBar(a, index, pVec, pRootPows, pNTTBarPres);
+    }
 
 #ifdef CONFIG_RVV
     void rvv_ori_qiNTTAndEqual_withBar(uint64_t *a, long index);
@@ -159,13 +195,51 @@ class Context
     void mt_rvv_ori_qiNTTAndEqual_withMont(uint64_t *a, long index);
     void mt_rvv_step4_qiNTTAndEqual_withBar(uint64_t *a, long index);
     void mt_rvv_step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
+
+    void rvv_ori_piNTTAndEqual_withBar(uint64_t *a, long index);
+    void rvv_ori_piNTTAndEqual_withMont(uint64_t *a, long index);
+    void rvv_step4_piNTTAndEqual_withBar(uint64_t *a, long index);
+    void rvv_step4_piNTTAndEqual_withMont(uint64_t *a, long index);
+    void mt_rvv_ori_piNTTAndEqual_withBar(uint64_t *a, long index);
+    void mt_rvv_ori_piNTTAndEqual_withMont(uint64_t *a, long index);
+    void mt_rvv_step4_piNTTAndEqual_withBar(uint64_t *a, long index);
+    void mt_rvv_step4_piNTTAndEqual_withMont(uint64_t *a, long index);
 #endif
 
 #ifdef CONFIG_FHE_EXT
+
+    void ext_NTTAndEqual_withBar(uint64_t *a, uint64_t q, uint64_t qInv, 
+                                 uint64_t* RootScalePows, uint64_t* RootPows, uint64_t* NTTBarPres);
+    inline void 
+    ext_qiNTTAndEqual_withBar(uint64_t *a, long index)
+    {
+      ext_NTTAndEqual_withBar(a, qVec[index], qInvVec[index], qRootScalePows[index], qRootPows[index], qNTTBarPres[index]);
+    }
+    inline void 
+    ext_piNTTAndEqual_withBar(uint64_t *a, long index)
+    {
+      ext_NTTAndEqual_withBar(a, pVec[index], pInvVec[index], pRootScalePows[index], pRootPows[index], pNTTBarPres[index]);
+    }
+
+    void ext_NTTAndEqual_withMont(uint64_t *a, uint64_t q, 
+                                  uint64_t qInv, uint64_t* RootScalePows, uint64_t* RootPows);
+    inline void 
+    ext_qiNTTAndEqual_withMont(uint64_t *a, long index)
+    {
+      ext_NTTAndEqual_withMont(a, qVec[index], qInvVec[index], qRootScalePows[index], qRootPows[index]);
+    }
+    inline void 
+    ext_piNTTAndEqual_withMont(uint64_t *a, long index)
+    {
+      ext_NTTAndEqual_withMont(a, pVec[index], pInvVec[index], pRootScalePows[index], pRootPows[index]);
+    }
+
     void ext_step4_qiNTTAndEqual_withBar(uint64_t *a, long index);
     void ext_step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
-    void ext_qiNTTAndEqual_withBar(uint64_t *a, long index);
-    void ext_qiNTTAndEqual_withMont(uint64_t *a, long index);
+
+    void ext_step4_piNTTAndEqual_withBar(uint64_t *a, long index);
+    void ext_step4_piNTTAndEqual_withMont(uint64_t *a, long index);
+
     #ifdef CONFIG_RVV
     void rvv_ext_step4_qiNTTAndEqual_withBar(uint64_t *a, long index);
     void rvv_ext_step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
@@ -175,11 +249,20 @@ class Context
     void mt_rvv_ext_step4_qiNTTAndEqual_withMont(uint64_t *a, long index);
     void mt_rvv_ext_ori_qiNTTAndEqual_withBar(uint64_t *a, long index);
     void mt_rvv_ext_ori_qiNTTAndEqual_withMont(uint64_t *a, long index);
+
+    void rvv_ext_step4_piNTTAndEqual_withBar(uint64_t *a, long index);
+    void rvv_ext_step4_piNTTAndEqual_withMont(uint64_t *a, long index);
+    void rvv_ext_ori_piNTTAndEqual_withBar(uint64_t *a, long index);
+    void rvv_ext_ori_piNTTAndEqual_withMont(uint64_t *a, long index);
+    void mt_rvv_ext_step4_piNTTAndEqual_withBar(uint64_t *a, long index);
+    void mt_rvv_ext_step4_piNTTAndEqual_withMont(uint64_t *a, long index);
+    void mt_rvv_ext_ori_piNTTAndEqual_withBar(uint64_t *a, long index);
+    void mt_rvv_ext_ori_piNTTAndEqual_withMont(uint64_t *a, long index);
     #endif
 #endif
 
     Context(long logN, long logp, long L, long K, long h = 64,
-            double sigma = 3.2);
+            double sigma = 3.2, long direct_q_val = 0);
     virtual ~Context();
 
     void arrayBitReverse(complex<double> *vals, const long size);

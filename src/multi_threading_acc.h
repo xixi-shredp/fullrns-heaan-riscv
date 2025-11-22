@@ -24,42 +24,42 @@ typedef struct {
   long res_vl;
 } mt_rvv_ori_args_t;
 
-#define Step4NTTCol_FUNC_Def(case, global, ROWNTT_FUNC)           \
-void mt_##case##_rowntt_col_func(void *args){                     \
-    mt_rvv_step_args_t *p = &global; int i = (int)(intptr_t)args; \
-    uint64_t *a1 = p->data + (i << p->logN); Context *c = p->c;   \
-                                                                  \
-    ROWNTT_FUNC(a1, p->N, p->logN, p->q, p->qInv,                 \
-                c->s4ntt_col_qRootPows[p->index],                 \
-                c->s4ntt_col_qRootScalePows[p->index],            \
-                c->s4ntt_colBarPres[p->index]);}
+#define Step4NTTCol_FUNC_Def(case, global, ROWNTT_FUNC, mod)       \
+void mt_##case##_rowntt_col_func(void *args){                      \
+    mt_rvv_step_args_t *_p = &global; int i = (int)(intptr_t)args; \
+    uint64_t *a1 = _p->data + (i << _p->logN); Context *c = _p->c; \
+                                                                   \
+    ROWNTT_FUNC(a1, _p->N, _p->logN, _p->q, _p->qInv,              \
+                c->s4ntt_col_##mod##RootPows[_p->index],           \
+                c->s4ntt_col_##mod##RootScalePows[_p->index],      \
+                c->s4ntt_##mod##colBarPres[_p->index]);}
 
-#define Step4NTTRowMulNTT_FUNC_Def(case, global, RowMul_Func, ROWNTT_FUNC)    \
-void mt_##case##_row_mulntt_row_func(void *args){                             \
-    mt_rvv_step_args_t *p = &global; int i = (int)(intptr_t)args;             \
-    Context *c = p->c;                                                        \
-                                                                              \
-    RowMul_Func(i, p->N, p->logN, p->data, c->wmatrix_scalepows[p->index],    \
-                c->wmatrix_pows[p->index], c->s4ntt_wmatrixBarPres[p->index], \
-                p->q, p->qInv);                                               \
-    uint64_t *a1 = p->data + (i << p->logN); ROWNTT_FUNC(                     \
-        a1, p->N, p->logN, p->q, p->qInv, c->s4ntt_row_qRootPows[p->index],   \
-        c->s4ntt_row_qRootScalePows[p->index],                                \
-        c->s4ntt_rowBarPres[p->index]);}
+#define Step4NTTRowMulNTT_FUNC_Def(case, global, RowMul_Func, ROWNTT_FUNC, mod)             \
+void mt_##case##_row_mulntt_row_func(void *args){                                           \
+    mt_rvv_step_args_t *_p = &global; int i = (int)(intptr_t)args;                          \
+    Context *c = _p->c;                                                                     \
+                                                                                            \
+    RowMul_Func(i, _p->N, _p->logN, _p->data, c->mod##Wmatrix_scalepows[_p->index],         \
+                c->mod##Wmatrix_pows[_p->index], c->s4ntt_##mod##WmatrixBarPres[_p->index], \
+                _p->q, _p->qInv);                                                           \
+    uint64_t *a1 = _p->data + (i << _p->logN); ROWNTT_FUNC(                                 \
+        a1, _p->N, _p->logN, _p->q, _p->qInv, c->s4ntt_row_##mod##RootPows[_p->index],      \
+        c->s4ntt_row_##mod##RootScalePows[_p->index],                                       \
+        c->s4ntt_##mod##rowBarPres[_p->index]);}
 
-#define MT_STEP4NTT_TEMPLATE_IMPLEMENT(cfunc, case, initcode, global)        \
+#define MT_STEP4NTT_TEMPLATE_IMPLEMENT(cfunc, case, initcode, global, mod)   \
   void Context::cfunc(uint64_t *a, long index)                               \
   {                                                                          \
     long t = N;                                                              \
     long logt1 = logN + 1;                                                   \
-    uint64_t q = qVec[index];                                                \
-    uint64_t qInv = qInvVec[index];                                          \
+    uint64_t mod = mod##Vec[index];                                          \
+    uint64_t mod##Inv = mod##InvVec[index];                                  \
                                                                              \
     uint64_t *temp = nullptr;                                                \
     uint64_t *row_in = a;                                                    \
                                                                              \
-    global.q = q;                                                            \
-    global.qInv = qInv;                                                      \
+    global.q = mod;                                                          \
+    global.qInv = mod##Inv;                                                  \
     global.c = this;                                                         \
     global.index = index;                                                    \
                                                                              \

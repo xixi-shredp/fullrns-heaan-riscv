@@ -1,6 +1,7 @@
-TARGET        ?= ../FRNSHEAAN-gem5-riscv64
+TARGET        ?= ../FRNSHEAAN-gem5-riscv64-CO-S4Mont
 # TARGET        ?= ~/ysyx/ysyx-workbench/am-kernels/tests/riscv-vector-tests-am/repo/out/v128x64user/bin/stage2/vse64_v-0
-TARGET_OPTION ?= --check --logN 10 --logQ 30 --case rvv_ext_ori_bar
+# TARGET_OPTION ?= --check --logN 10 --logQ 30 --case rvv_ext_ori_bar
+TARGET_OPTION ?= --logN 8 -q 3329 -e --case rvv_ori_bar
 
 # sota cases
 # TARGET_OPTION ?= --check --logN 11 --logQ 30
@@ -15,7 +16,6 @@ GEM5 = gem5-riscv
 include ./config/c910.mk
 include ../../scripts/util.mk
 
-
 SE_FLAGS += -c $(TARGET)
 
 ifneq ($(TARGET_OPTION),)
@@ -23,6 +23,7 @@ SE_FLAGS += -o "$(TARGET_OPTION)"
 endif
 
 GEM5_ARGS += -d $(BUILD_DIR)
+# --debug-flag=Exec
 GEM5_CONFIG_PY = config/se.py
 
 # GEM5_ARGS += --debug-flag=ExecEnable,ExecUser,ExecKernel,ExecSymbol --debug-file=trace.out.gz 

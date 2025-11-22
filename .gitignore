@@ -8,5 +8,6 @@ config.h
 *.d
 
 result*/
+/data/
 
 __pycache__/

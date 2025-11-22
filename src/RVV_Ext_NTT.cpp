@@ -383,52 +383,71 @@ rvv_rowMul_withMont(long rowIdx, long rowSz, long logRowSz, uint64_t *src,
   }
 }
 
-  #define RVV_EXT_ROW_NTT_Barrett(a, s, N)                               \
-    {                                                                    \
-      uint64_t *a1 = a + (i << log##N);                                  \
-      rvv_ext_rowNTT_withBar(                                            \
-          a1, N, log##N, q, qInv, s4ntt_##s##_qRootPows[index],          \
-          s4ntt_##s##_qRootScalePows[index], s4ntt_##s##BarPres[index]); \
+  #define RVV_EXT_ROW_NTT_Barrett(a, s, N, mod)                                     \
+    {                                                                               \
+      uint64_t *a1 = a + (i << log##N);                                             \
+      rvv_ext_rowNTT_withBar(                                                       \
+          a1, N, log##N, mod, mod##Inv, s4ntt_##s##_##mod##RootPows[index],         \
+          s4ntt_##s##_##mod##RootScalePows[index], s4ntt_##mod##s##BarPres[index]); \
     }
-  #define RVV_ROW_MUL_Barrett                                               \
-    rvv_rowMul_withBar(i, N2, logN2, a, wmatrix_scalepows[index],           \
-                       wmatrix_pows[index], s4ntt_wmatrixBarPres[index], q, \
-                       qInv);
+  #define RVV_ROW_MUL_Barrett(mod)                                                        \
+    rvv_rowMul_withBar(i, N2, logN2, a, mod##Wmatrix_scalepows[index],                    \
+                       mod##Wmatrix_pows[index], s4ntt_##mod##WmatrixBarPres[index], mod, \
+                       mod##Inv);
 
-  #define RVV_EXT_ROW_NTT_Montgomeny(a, s, N)                              \
-    {                                                                      \
-      uint64_t *a1 = a + (i << log##N);                                    \
-      rvv_ext_rowNTT_withMont(a1, N, log##N, q, qInv,                      \
-                              s4ntt_##s##_qRootPows[index],                \
-                              s4ntt_##s##_qRootScalePows[index], nullptr); \
+  #define RVV_EXT_ROW_NTT_Montgomeny(a, s, N, mod)                               \
+    {                                                                            \
+      uint64_t *a1 = a + (i << log##N);                                          \
+      rvv_ext_rowNTT_withMont(a1, N, log##N, mod, mod##Inv,                      \
+                              s4ntt_##s##_##mod##RootPows[index],                \
+                              s4ntt_##s##_##mod##RootScalePows[index], nullptr); \
     }
-  #define RVV_ROW_MUL_Montgomeny                                            \
-    rvv_rowMul_withMont(i, N2, logN2, a, wmatrix_scalepows[index], nullptr, \
-                        nullptr, q, qInv);
+  #define RVV_ROW_MUL_Montgomeny(mod)                                            \
+    rvv_rowMul_withMont(i, N2, logN2, a, mod##Wmatrix_scalepows[index], nullptr, \
+                        nullptr, mod, mod##Inv);
 
 STEP4NTT_TEMPLATE_IMPLEMENT(rvv_ext_step4_qiNTTAndEqual_withBar,
                             RVV_ROW_MUL_Barrett, RVV_EXT_ROW_NTT_Barrett,
-                            SET_MOD);
+                            SET_MOD(q), q);
 STEP4NTT_TEMPLATE_IMPLEMENT(rvv_ext_step4_qiNTTAndEqual_withMont,
                             RVV_ROW_MUL_Montgomeny, RVV_EXT_ROW_NTT_Montgomeny,
-                            SET_MOD);
+                            SET_MOD(q), q);
 
 void
 Context::rvv_ext_ori_qiNTTAndEqual_withBar(uint64_t *a, long index)
 {
   uint64_t q = qVec[index];
   uint64_t qInv = qInvVec[index];
-  SET_MOD;
+  SET_MOD(q);
   rvv_ext_rowNTT_withBar(a, N, logN, q, qInv, qRootPows[index], nullptr,
-                         nttBarPres[index]);
+                         qNTTBarPres[index]);
 }
 void
 Context::rvv_ext_ori_qiNTTAndEqual_withMont(uint64_t *a, long index)
 {
   uint64_t q = qVec[index];
   uint64_t qInv = qInvVec[index];
-  SET_MOD;
+  SET_MOD(q);
   rvv_ext_rowNTT_withMont(a, N, logN, q, qInv, nullptr, qRootScalePows[index],
+                          nullptr);
+}
+
+void
+Context::rvv_ext_ori_piNTTAndEqual_withBar(uint64_t *a, long index)
+{
+  uint64_t p = pVec[index];
+  uint64_t pInv = pInvVec[index];
+  SET_MOD(p);
+  rvv_ext_rowNTT_withBar(a, N, logN, p, pInv, pRootPows[index], nullptr,
+                         pNTTBarPres[index]);
+}
+void
+Context::rvv_ext_ori_piNTTAndEqual_withMont(uint64_t *a, long index)
+{
+  uint64_t p = pVec[index];
+  uint64_t pInv = pInvVec[index];
+  SET_MOD(p);
+  rvv_ext_rowNTT_withMont(a, N, logN, p, pInv, nullptr, pRootScalePows[index],
                           nullptr);
 }
 
@@ -441,27 +460,41 @@ setmod_work_wrap(void *args)
   set_mod(p->q, p->qInv);
 }
 
-  #define SETMOD_FORTHREAD                                        \
-    SET_MOD;                                                      \
+  #define SETMOD_FORTHREAD(mod)                                   \
+    SET_MOD(mod);                                                 \
     thread_pool_add_task(thread_pool, setmod_work_wrap, nullptr); \
     thread_pool_add_task(thread_pool, setmod_work_wrap, nullptr); \
     thread_pool_add_task(thread_pool, setmod_work_wrap, nullptr)
 
 // ====== Multi-Threading Accelaration For rvv_ext_step4_bar =======
 
-Step4NTTCol_FUNC_Def(rvv_ext_step4_bar, global_args, rvv_ext_rowNTT_withBar);
-Step4NTTRowMulNTT_FUNC_Def(rvv_ext_step4_bar, global_args, rvv_rowMul_withBar,
-                           rvv_ext_rowNTT_withBar);
+Step4NTTCol_FUNC_Def(q_rvv_ext_step4_bar, global_args, rvv_ext_rowNTT_withBar, q);
+Step4NTTRowMulNTT_FUNC_Def(q_rvv_ext_step4_bar, global_args, rvv_rowMul_withBar,
+                           rvv_ext_rowNTT_withBar, q);
 MT_STEP4NTT_TEMPLATE_IMPLEMENT(mt_rvv_ext_step4_qiNTTAndEqual_withBar,
-                               rvv_ext_step4_bar, SETMOD_FORTHREAD,
-                               global_args);
+                               q_rvv_ext_step4_bar, SETMOD_FORTHREAD(q),
+                               global_args, q);
+
+Step4NTTCol_FUNC_Def(p_rvv_ext_step4_bar, global_args, rvv_ext_rowNTT_withBar, p);
+Step4NTTRowMulNTT_FUNC_Def(p_rvv_ext_step4_bar, global_args, rvv_rowMul_withBar,
+                           rvv_ext_rowNTT_withBar, p);
+MT_STEP4NTT_TEMPLATE_IMPLEMENT(mt_rvv_ext_step4_piNTTAndEqual_withBar,
+                               p_rvv_ext_step4_bar, SETMOD_FORTHREAD(p),
+                               global_args, p);
 
 // ====== Multi-Threading Accelaration For rvv_ext_step4_mont =======
-Step4NTTCol_FUNC_Def(rvv_ext_step4_mont, global_args, rvv_ext_rowNTT_withMont);
-Step4NTTRowMulNTT_FUNC_Def(rvv_ext_step4_mont, global_args,
-                           rvv_rowMul_withMont, rvv_ext_rowNTT_withMont);
+Step4NTTCol_FUNC_Def(q_rvv_ext_step4_mont, global_args, rvv_ext_rowNTT_withMont, q);
+Step4NTTRowMulNTT_FUNC_Def(q_rvv_ext_step4_mont, global_args,
+                           rvv_rowMul_withMont, rvv_ext_rowNTT_withMont, q);
 MT_STEP4NTT_TEMPLATE_IMPLEMENT(mt_rvv_ext_step4_qiNTTAndEqual_withMont,
-                               rvv_ext_step4_mont, SETMOD_FORTHREAD,
-                               global_args);
+                               q_rvv_ext_step4_mont, SETMOD_FORTHREAD(q),
+                               global_args, q);
+
+Step4NTTCol_FUNC_Def(p_rvv_ext_step4_mont, global_args, rvv_ext_rowNTT_withMont, p);
+Step4NTTRowMulNTT_FUNC_Def(p_rvv_ext_step4_mont, global_args,
+                           rvv_rowMul_withMont, rvv_ext_rowNTT_withMont, p);
+MT_STEP4NTT_TEMPLATE_IMPLEMENT(mt_rvv_ext_step4_piNTTAndEqual_withMont,
+                               p_rvv_ext_step4_mont, SETMOD_FORTHREAD(p),
+                               global_args, p);
 
 #endif // CONFIG_RVV

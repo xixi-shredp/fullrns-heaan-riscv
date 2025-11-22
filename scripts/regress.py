@@ -43,11 +43,11 @@ class MyTask(TaskThread):
     args = {
         "arch": ["gem5-riscv64"],
         "logN": [11, 12, 13, 14, 15, 16],
-        "bar": [True],
-        "rvv": [True],
-        "mt": [False],
+        "bar":  [False],
+        "rvv":  [False],
+        "mt":   [False],
         "step": [False],
-        "ext": [True],
+        "ext":  [True],
     }
     parallel = True
     slient = False
@@ -102,7 +102,7 @@ class MyTask(TaskThread):
                     return False
 
         build_dir = f"{work_dir}/result/gem5-riscv64/{self.logN}/{self.case_name}"
-        target_option = f"--check --logN {self.logN} --case {self.case_name}"
+        target_option = f"--check --logN {self.logN} -e --case {self.case_name}"
         cmd = [
             "make",
             f"--directory={gem5_run_dir}",
@@ -120,7 +120,46 @@ class MyTask(TaskThread):
             self.status = TaskStatus.FILE_ERROR
         if not check_pass(f"{build_dir}/stdout.txt"):
             self.status = TaskStatus.VALUE_ERROR
+        
+    def mod_test(self):
 
+        build_dir = f"{work_dir}/result/gem5-riscv64-modtest/{self.logN}/soft_addmod"
+        target_option = f"--logN {self.logN}"
+        cmd = [
+            "make",
+            f"--directory={gem5_run_dir}",
+            "se",
+            f"TARGET={gem5_target}",
+            f"TARGET_OPTION={target_option}",
+            f"BUILD_DIR={build_dir}",
+        ]
+        self.run_process(cmd, "Gem5 Running")
+
+        cfg_file = f"{build_dir}/config.json"
+        stat_file = f"{build_dir}/stats.txt"
+        check = check_dir(build_dir) and check_file(cfg_file) and check_file(stat_file)
+        if not check:
+            self.status = TaskStatus.FILE_ERROR
+
+    def e2e_run(self):
+
+        build_dir = f"{work_dir}/result/gem5-riscv64-e2e/{self.logN}/{self.case_name}"
+        target_option = f"--check --logN {self.logN}"
+        cmd = [
+            "make",
+            f"--directory={gem5_run_dir}",
+            "se",
+            f"TARGET={gem5_target}",
+            f"TARGET_OPTION={target_option}",
+            f"BUILD_DIR={build_dir}",
+        ]
+        self.run_process(cmd, "Gem5 Running")
+
+        cfg_file = f"{build_dir}/config.json"
+        stat_file = f"{build_dir}/stats.txt"
+        check = check_dir(build_dir) and check_file(cfg_file) and check_file(stat_file)
+        if not check:
+            self.status = TaskStatus.FILE_ERROR
 
 class ModTest(TaskThread):
     logN: int
@@ -247,7 +286,9 @@ if __name__ == "__main__":
     task = MyTask()
     # vector_regress(task)
 
-    task.set_task([MyTask.gem5_run])
+    # task.set_task([MyTask.gem5_run])
+    # task.set_task([MyTask.e2e_run])
+    task.set_task([MyTask.mod_test])
 
     # task = ModTest()
     # task.set_task([ModTest.run])

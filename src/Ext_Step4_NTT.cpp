@@ -289,33 +289,39 @@ ext_row_mul_withMont(long rowIdx, long rowSz, long logRowSz, uint64_t *src,
     }
 }
 
-    #define ROW_MUL_Barrett                                       \
-        ext_row_mul_withBar(i, N2, logN2, a, wmatrix_pows[index], \
-                            s4ntt_wmatrixBarPres[index], q, qInv);
+    #define ROW_MUL_Barrett(mod)                                       \
+        ext_row_mul_withBar(i, N2, logN2, a, mod##Wmatrix_pows[index], \
+                            s4ntt_##mod##WmatrixBarPres[index], mod, mod##Inv);
 
-    #define ROW_MUL_Montgomeny                                             \
-        ext_row_mul_withMont(i, N2, logN2, a, wmatrix_scalepows[index], q, \
-                             qInv);
+    #define ROW_MUL_Montgomeny(mod)                                               \
+        ext_row_mul_withMont(i, N2, logN2, a, mod##Wmatrix_scalepows[index], mod, \
+                             mod##Inv);
 
-    #define ROW_NTT_Barrett(a, s, N)                        \
-        {                                                   \
-            uint64_t *__a1 = a + (i << log##N);             \
-            ext_rowNTTWithBar(__a1, N, log##N, q,           \
-                              s4ntt_##s##_qRootPows[index], \
-                              s4ntt_##s##BarPres[index]);   \
+    #define ROW_NTT_Barrett(a, s, N, mod)                         \
+        {                                                         \
+            uint64_t *__a1 = a + (i << log##N);                   \
+            ext_rowNTTWithBar(__a1, N, log##N, mod,               \
+                              s4ntt_##s##_##mod##RootPows[index], \
+                              s4ntt_##mod##s##BarPres[index]);    \
         }
 
-    #define ROW_NTT_Montgomeny(a, s, N)                            \
-        {                                                          \
-            uint64_t *__a1 = a + (i << log##N);                    \
-            ext_rowNTTWithMont(__a1, N, log##N, q, qInv,           \
-                               s4ntt_##s##_qRootScalePows[index]); \
+    #define ROW_NTT_Montgomeny(a, s, N, mod)                             \
+        {                                                                \
+            uint64_t *__a1 = a + (i << log##N);                          \
+            ext_rowNTTWithMont(__a1, N, log##N, mod, mod##Inv,           \
+                               s4ntt_##s##_##mod##RootScalePows[index]); \
         }
 
 STEP4NTT_TEMPLATE_IMPLEMENT(ext_step4_qiNTTAndEqual_withBar, ROW_MUL_Barrett,
-                            ROW_NTT_Barrett, SET_MOD);
+                            ROW_NTT_Barrett, SET_MOD(q), q);
 
 STEP4NTT_TEMPLATE_IMPLEMENT(ext_step4_qiNTTAndEqual_withMont,
-                            ROW_MUL_Montgomeny, ROW_NTT_Montgomeny, SET_MOD);
+                            ROW_MUL_Montgomeny, ROW_NTT_Montgomeny, SET_MOD(q), q);
+
+STEP4NTT_TEMPLATE_IMPLEMENT(ext_step4_piNTTAndEqual_withBar, ROW_MUL_Barrett,
+                            ROW_NTT_Barrett, SET_MOD(p), p);
+
+STEP4NTT_TEMPLATE_IMPLEMENT(ext_step4_piNTTAndEqual_withMont,
+                            ROW_MUL_Montgomeny, ROW_NTT_Montgomeny, SET_MOD(p), p);
 
 #endif

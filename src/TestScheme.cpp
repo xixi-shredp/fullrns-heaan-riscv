@@ -20,15 +20,61 @@
 #include <vector>
 #include <chrono>
 
+#include "utils.h"
+
 using namespace std;
 using namespace chrono;
 
-void TestScheme::testSOTA(long logN, long logp) {
-	cout << "!!! START TEST For SOTA compare !!!" << endl;
+void TestScheme::testModOP(long logN, long logp) {
+	cout << "!!! START TEST For Modular Operation !!!" << endl;
+	TimeUtils timeutils;
+  long n_ops = logN * (1 << logN) / 2; 
+	srand(time(NULL));
+  uint64_t q = (1 << logp) + rand() % (1ull << (63-logp));
+  uint64_t qInv = invMod(1<<logN, q);
+  uint64_t *op_array1 = new uint64_t[n_ops];
+  uint64_t *op_array2 = new uint64_t[n_ops];
+  // uint64_t *pre_array = new uint64_t[n_ops];
+  volatile uint64_t *res_array = new uint64_t[n_ops];
+  for(int i = 0; i < n_ops; i++){
+    op_array1[i] = rand() % q;
+    op_array2[i] = rand() % q;
+    // pre_array[i] = ((__uint128_t)op_array2[i] << 64)/q;
+  }
+
+  // set_mod(q, qInv);
+	timeutils.start("ModOP");
+  for(int i = 0; i < n_ops; i++){
+    // res_array[i] = addmod(op_array1[i], op_array2[i]);
+    res_array[i] = (op_array1[i] + op_array2[i]) % q;
+
+    // res_array[i] = bar_mulmod_s(op_array1[i], op_array2[i], pre_array[i]);
+    // res_array[i] = barrett_modMul_singalVal(op_array1[i], op_array2[i], q, pre_array[i]);
+
+    // res_array[i] = mont_redc(op_array1[i], op_array2[i]);
+    // res_array[i] = montgomey_redc(op_array1[i], op_array2[i], q, qInv);
+  }
+	timeutils.stop("ModOP");
+
+  for(int i = 0; i < n_ops; i++){
+    if (res_array[i] > q){
+      printf("error.");
+    }
+  }
+
+  delete [] op_array1;
+  delete [] op_array2;
+  delete [] res_array;
+	cout << "!!! END TEST For MulMod !!!" << endl;
+}
+
+void TestScheme::myTest(long logN, long logp) {
+	cout << "!!! START MY TEST!!!" << endl;
 	//-----------------------------------------
 	TimeUtils timeutils;
-	long k = 1;
-	Context context(logN, logp, 1, k);
+	long L = 44;
+	long k = L + 1;
+	Context context(logN, logp, L, k);
 	SecretKey secretKey(context);
 	Scheme scheme(secretKey, context);
 	//-----------------------------------------
@@ -37,7 +83,7 @@ void TestScheme::testSOTA(long logN, long logp) {
 	complex<double> m = EvaluatorUtils::randomCircle();
 
 	timeutils.start("Encrypt single");
-	Ciphertext cipher = scheme.encryptSingle(m, 1);
+	Ciphertext cipher = scheme.encryptSingle(m, L);
 	timeutils.stop("Encrypt single");
 
 	timeutils.start("Decrypt single");
@@ -46,7 +92,7 @@ void TestScheme::testSOTA(long logN, long logp) {
 
 	StringUtils::showcompare(m, d, "val");
 
-	cout << "!!! END TEST For SOTA compare !!!" << endl;
+	cout << "!!! END MY TEST!!!" << endl;
 }
 
 void TestScheme::testEncodeSingle(long logN, long L, long logp) {

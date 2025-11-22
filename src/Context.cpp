@@ -15,8 +15,9 @@
 #include "Step4NTTUtil.h"
 #include "ThreadPool.h"
 #include "preprocess.h"
+#include "RVVUtil.h"
 
-Context::Context(long logN, long logp, long L, long K, long h, double sigma)
+Context::Context(long logN, long logp, long L, long K, long h, double sigma, long direct_q_val)
     : logN(logN), logp(logp), L(L), K(K), h(h), sigma(sigma)
 {
 
@@ -26,6 +27,14 @@ Context::Context(long logN, long logp, long L, long K, long h, double sigma)
     Nh    = N >> 1;
     p     = 1L << logp;
 
+    logN1 = logN / 2;
+    logN2 = logN - logN1;
+    N1    = 1 << logN1;
+    N2    = 1 << logN2;
+
+    thread_pool = thread_pool_create(MaxThread);
+
+  ///======================= q =====================
     qVec                = new uint64_t[L]();
     qrVec               = new uint64_t[L]();
     qTwok               = new long[L]();
@@ -42,19 +51,10 @@ Context::Context(long logN, long logp, long L, long K, long h, double sigma)
     NInvModq            = new uint64_t[L]();
     NScaleInvModq       = new uint64_t[L]();
 
-    logN1 = logN / 2;
-    logN2 = logN - logN1;
-    N1    = 1 << logN1;
-    N2    = 1 << logN2;
-
-    // wmatrix_scalepows = new uint64_t **[L];
-    wmatrix_scalepows = new uint64_t *[L];
-    wmatrix_pows      = new uint64_t *[L];
-
+    qNTTBarPres = cus_alloc(uint64_t *, L);
     s4ntt_row_qRoots         = cus_alloc(uint64_t, L);
     s4ntt_row_qRootPows      = cus_alloc(uint64_t *, L);
     s4ntt_row_qRootScalePows = cus_alloc(uint64_t *, L);
-
     if (N1 == N2) {
         s4ntt_col_qRoots         = s4ntt_row_qRoots;
         s4ntt_col_qRootPows      = s4ntt_row_qRootPows;
@@ -64,47 +64,51 @@ Context::Context(long logN, long logp, long L, long K, long h, double sigma)
         s4ntt_col_qRootPows      = cus_alloc(uint64_t *, L);
         s4ntt_col_qRootScalePows = cus_alloc(uint64_t *, L);
     }
-
-    nttBarPres           = cus_alloc(uint64_t *, L);
-    s4ntt_wmatrixBarPres = new uint64_t *[L];
-    s4ntt_rowBarPres     = cus_alloc(uint64_t *, L);
-    if (N1 == N2) {
-        s4ntt_colBarPres = s4ntt_rowBarPres;
-    } else {
-        s4ntt_colBarPres = cus_alloc(uint64_t *, L);
-    }
-    
-    thread_pool = thread_pool_create(MaxThread - 1);
-
     qRootAllPows = new uint64_t *[L];
+    qWmatrix_pows      = new uint64_t *[L];
+    qWmatrix_scalepows = new uint64_t *[L];
+    s4ntt_qrowBarPres     = cus_alloc(uint64_t *, L);
+    s4ntt_qWmatrixBarPres = new uint64_t *[L];
+    if (N1 == N2) {
+        s4ntt_qcolBarPres = s4ntt_qrowBarPres;
+    } else {
+        s4ntt_qcolBarPres = cus_alloc(uint64_t *, L);
+    }
 
     // Generate Primes //
     long bnd = 1;
     long cnt = 1;
 
     bnd = 1;
-    while (1) {
-        uint64_t prime = (1ULL << Q0_BIT_SIZE) + bnd * M + 1;
-        if (primeTest(prime)) {
-            qVec[0] = prime;
-            break;
-        }
-        bnd++;
+    if(direct_q_val != 0) {
+      qVec[0] = direct_q_val;
+      printf("direct_q_val: %ld.\n", direct_q_val);
+      assert(L == 1);
     }
+    else{
+      while (1) {
+          uint64_t prime = (1ULL << Q0_BIT_SIZE) + bnd * M + 1;
+          if (primeTest(prime)) {
+              qVec[0] = prime;
+              break;
+          }
+          bnd++;
+      }
 
-    bnd = 1;
-    while (cnt < L) {
-        uint64_t prime1 = (1ULL << logp) + bnd * M + 1;
-        if (primeTest(prime1)) {
-            qVec[cnt] = prime1;
-            cnt++;
-        }
-        uint64_t prime2 = (1ULL << logp) - bnd * M + 1;
-        if (primeTest(prime2)) {
-            qVec[cnt] = prime2;
-            cnt++;
-        }
-        bnd++;
+      bnd = 1;
+      while (cnt < L) {
+          uint64_t prime1 = (1ULL << logp) + bnd * M + 1;
+          if (primeTest(prime1)) {
+              qVec[cnt] = prime1;
+              cnt++;
+          }
+          uint64_t prime2 = (1ULL << logp) - bnd * M + 1;
+          if (primeTest(prime2)) {
+              qVec[cnt] = prime2;
+              cnt++;
+          }
+          bnd++;
+      }
     }
 
     if (logp - logN - 1 - ceil(log2(bnd)) < 10) {
@@ -180,17 +184,20 @@ Context::Context(long logN, long logp, long L, long K, long h, double sigma)
                          s4ntt_row_qRootPows[i], s4ntt_row_qRootScalePows[i],
                          qVec[i]);
         }
-        nttBarPres[i] = new uint64_t[N]();
-        calBarPre(N, qRootPows[i], nttBarPres[i], qVec[i]);
-        s4ntt_colBarPres[i] = new uint64_t[N1];
-        calBarPre(N1, s4ntt_col_qRootPows[i], s4ntt_colBarPres[i], qVec[i]);
+        qNTTBarPres[i] = new uint64_t[N]();
+        calBarPre(N, qRootPows[i], qNTTBarPres[i], qVec[i]);
+        s4ntt_qcolBarPres[i] = new uint64_t[N1];
+        calBarPre(N1, s4ntt_col_qRootPows[i], s4ntt_qcolBarPres[i], qVec[i]);
         if (N1 != N2) {
-            s4ntt_rowBarPres[i] = new uint64_t[N2];
-            calBarPre(N2, s4ntt_row_qRootPows[i], s4ntt_rowBarPres[i],
+            s4ntt_qrowBarPres[i] = new uint64_t[N2];
+            calBarPre(N2, s4ntt_row_qRootPows[i], s4ntt_qrowBarPres[i],
                       qVec[i]);
         }
+
+        
     }
 
+  ///======================= p =====================
     pVec                = new uint64_t[K]();
     prVec               = new uint64_t[K]();
     pTwok               = new long[K]();
@@ -206,6 +213,30 @@ Context::Context(long logN, long logp, long L, long K, long h, double sigma)
     pRootScalePowsInv   = new uint64_t *[K];
     NInvModp            = new uint64_t[K]();
     NScaleInvModp       = new uint64_t[K]();
+
+    pNTTBarPres = cus_alloc(uint64_t *, K);
+    s4ntt_row_pRoots         = cus_alloc(uint64_t, K);
+    s4ntt_row_pRootPows      = cus_alloc(uint64_t *, K);
+    s4ntt_row_pRootScalePows = cus_alloc(uint64_t *, K);
+    if (N1 == N2) {
+        s4ntt_col_pRoots         = s4ntt_row_pRoots;
+        s4ntt_col_pRootPows      = s4ntt_row_pRootPows;
+        s4ntt_col_pRootScalePows = s4ntt_row_pRootScalePows;
+    } else {
+        s4ntt_col_pRoots         = cus_alloc(uint64_t, K);
+        s4ntt_col_pRootPows      = cus_alloc(uint64_t *, K);
+        s4ntt_col_pRootScalePows = cus_alloc(uint64_t *, K);
+    }
+    pRootAllPows = new uint64_t *[K];
+    pWmatrix_pows      = new uint64_t *[K];
+    pWmatrix_scalepows = new uint64_t *[K];
+    s4ntt_prowBarPres     = cus_alloc(uint64_t *, K);
+    s4ntt_pWmatrixBarPres = new uint64_t *[K];
+    if (N1 == N2) {
+        s4ntt_pcolBarPres = s4ntt_prowBarPres;
+    } else {
+        s4ntt_pcolBarPres = cus_alloc(uint64_t *, K);
+    }
 
     // Generate Special Primes //
     cnt = 0;
@@ -249,10 +280,22 @@ Context::Context(long logN, long logp, long L, long K, long h, double sigma)
         pInvVec[i]             = inv(pVec[i]);
         uint64_t power         = static_cast<uint64_t>(1);
         uint64_t powerInv      = static_cast<uint64_t>(1);
+
+        pRootAllPows[i]             = new uint64_t[N]();
+        s4ntt_col_pRoots[i]         = powMod(pRoots[i], N2, pVec[i]);
+        s4ntt_col_pRootPows[i]      = new uint64_t[N1];
+        s4ntt_col_pRootScalePows[i] = new uint64_t[N1];
+        if (N1 != N2) {
+            s4ntt_row_pRoots[i]         = powMod(pRoots[i], N1, pVec[i]);
+            s4ntt_row_pRootPows[i]      = new uint64_t[N2];
+            s4ntt_row_pRootScalePows[i] = new uint64_t[N2];
+        }
+
         for (long j = 0; j < N; ++j) {
             uint64_t jprime =
                 bitReverse(static_cast<uint32_t>(j)) >> (32 - logN);
             pRootPows[i][jprime] = power;
+            pRootAllPows[i][j]   = power;
             unsigned __int128 tmp =
                 (static_cast<unsigned __int128>(power) << 64);
             mulMod(pRootScalePows[i][jprime], pRootPows[i][jprime],
@@ -268,6 +311,23 @@ Context::Context(long logN, long logp, long L, long K, long h, double sigma)
                 mulMod(power, power, pRoots[i], pVec[i]);
                 mulMod(powerInv, powerInv, pRootsInv[i], pVec[i]);
             }
+        }
+
+        cal_RootPows(N1, logN1, s4ntt_col_pRoots[i], s4ntt_col_pRootPows[i],
+                     s4ntt_col_pRootScalePows[i], pVec[i]);
+        if (N1 != N2) {
+            cal_RootPows(N2, logN2, s4ntt_row_pRoots[i],
+                         s4ntt_row_pRootPows[i], s4ntt_row_pRootScalePows[i],
+                         pVec[i]);
+        }
+        pNTTBarPres[i] = new uint64_t[N]();
+        calBarPre(N, pRootPows[i], pNTTBarPres[i], pVec[i]);
+        s4ntt_pcolBarPres[i] = new uint64_t[N1];
+        calBarPre(N1, s4ntt_col_pRootPows[i], s4ntt_pcolBarPres[i], pVec[i]);
+        if (N1 != N2) {
+            s4ntt_prowBarPres[i] = new uint64_t[N2];
+            calBarPre(N2, s4ntt_row_pRootPows[i], s4ntt_prowBarPres[i],
+                      pVec[i]);
         }
     }
 
@@ -452,8 +512,8 @@ Context::Context(long logN, long logp, long L, long K, long h, double sigma)
                        -17. / 80640, 0, 31. / 1451520, 0}));
 
     for (int i = 0; i < L; ++i) {
-        wmatrix_scalepows[i] = cus_alloc(uint64_t, N);
-        wmatrix_pows[i]      = cus_alloc(uint64_t, N);
+        qWmatrix_scalepows[i] = cus_alloc(uint64_t, N);
+        qWmatrix_pows[i]      = cus_alloc(uint64_t, N);
         for (int j = 0; j < N1; ++j) {
             for (int k = 0; k < N2; ++k) {
                 int a        = bitReverse(j) >> (32 - logN1);
@@ -465,15 +525,41 @@ Context::Context(long logN, long logp, long L, long K, long h, double sigma)
                 } else {
                     res = qVec[i] - qRootAllPows[i][N + pow];
                 }
-                wmatrix_pows[i][j * N2 + k] = res;
-                mulMod(wmatrix_scalepows[i][j * N2 + k], res,
+                qWmatrix_pows[i][j * N2 + k] = res;
+                mulMod(qWmatrix_scalepows[i][j * N2 + k], res,
                        (static_cast<uint64_t>(1) << 32), qVec[i]);
-                mulMod(wmatrix_scalepows[i][j * N2 + k],
-                       wmatrix_scalepows[i][j * N2 + k],
+                mulMod(qWmatrix_scalepows[i][j * N2 + k],
+                       qWmatrix_scalepows[i][j * N2 + k],
                        (static_cast<uint64_t>(1) << 32), qVec[i]);
             }
-            s4ntt_wmatrixBarPres[i] = cus_alloc(uint64_t, N);
-            calBarPre(N, wmatrix_pows[i], s4ntt_wmatrixBarPres[i], qVec[i]);
+            s4ntt_qWmatrixBarPres[i] = cus_alloc(uint64_t, N);
+            calBarPre(N, qWmatrix_pows[i], s4ntt_qWmatrixBarPres[i], qVec[i]);
+        }
+    }
+
+    for (int i = 0; i < K; ++i) {
+        pWmatrix_scalepows[i] = cus_alloc(uint64_t, N);
+        pWmatrix_pows[i]      = cus_alloc(uint64_t, N);
+        for (int j = 0; j < N1; ++j) {
+            for (int k = 0; k < N2; ++k) {
+                int a        = bitReverse(j) >> (32 - logN1);
+                int b        = k;
+                int pow      = b * (2 * a - N1 + 1);
+                uint64_t res = 0;
+                if (pow >= 0) {
+                    res = pRootAllPows[i][pow];
+                } else {
+                    res = pVec[i] - pRootAllPows[i][N + pow];
+                }
+                pWmatrix_pows[i][j * N2 + k] = res;
+                mulMod(pWmatrix_scalepows[i][j * N2 + k], res,
+                       (static_cast<uint64_t>(1) << 32), pVec[i]);
+                mulMod(pWmatrix_scalepows[i][j * N2 + k],
+                       pWmatrix_scalepows[i][j * N2 + k],
+                       (static_cast<uint64_t>(1) << 32), pVec[i]);
+            }
+            s4ntt_pWmatrixBarPres[i] = cus_alloc(uint64_t, N);
+            calBarPre(N, pWmatrix_pows[i], s4ntt_pWmatrixBarPres[i], pVec[i]);
         }
     }
 }
@@ -763,27 +849,24 @@ static OpRecorder o_opr = OpRecorder(CONFIG_OP_RECORDER_PATH);
 #endif
 
 void
-Context::origin_qiNTTAndEqual_withBar(uint64_t *a, long index)
+Context::origin_NTTAndEqual_withBar(
+  uint64_t *a, long index, uint64_t* Vec, uint64_t** RootPows, uint64_t** NTTBarPres)
 {
     long t     = N;
     long logt1 = logN + 1;
-    uint64_t q = qVec[index];
-    //	uint64_t qd = qdVec[index];
-    uint64_t qInv = qInvVec[index];
+    uint64_t q = Vec[index];
     for (long m = 1; m < N; m <<= 1) {
         t >>= 1;
         logt1 -= 1;
         for (long i = 0; i < m; i++) {
             long j1       = i << logt1;
             long j2       = j1 + t - 1;
-            uint64_t Wori = qRootPows[index][m + i];
-            //			uint64_t W = qRootScalePowsOverq[index][m + i];
-            //			uint64_t w = qRootPows[index][m + i];
+            uint64_t Wori = RootPows[index][m + i];
             for (long j = j1; j <= j2; j++) {
 
                 uint64_t T = a[j + t];
                 uint64_t V = barrett_modMul_singalVal(
-                    T, Wori, q, nttBarPres[index][m + i]);
+                    T, Wori, q, NTTBarPres[index][m + i]);
                 barmul_record;
                 a[j + t] = a[j] < V ? a[j] + q - V : a[j] - V;
                 a[j] += V;
@@ -795,23 +878,20 @@ Context::origin_qiNTTAndEqual_withBar(uint64_t *a, long index)
     }
 }
 void
-Context::origin_qiNTTAndEqual_withMont(uint64_t *a, long index)
+Context::origin_NTTAndEqual_withMont(
+  uint64_t *a, long index, uint64_t* Vec, uint64_t* InvVec, uint64_t** RootScalePows)
 {
     long t     = N;
     long logt1 = logN + 1;
-    uint64_t q = qVec[index];
-    //	uint64_t qd = qdVec[index];
-    uint64_t qInv = qInvVec[index];
+    uint64_t q = Vec[index];
+    uint64_t qInv = InvVec[index];
     for (long m = 1; m < N; m <<= 1) {
         t >>= 1;
         logt1 -= 1;
         for (long i = 0; i < m; i++) {
             long j1       = i << logt1;
             long j2       = j1 + t - 1;
-            uint64_t W    = qRootScalePows[index][m + i];
-            uint64_t Wori = qRootPows[index][m + i];
-            //			uint64_t W = qRootScalePowsOverq[index][m + i];
-            //			uint64_t w = qRootPows[index][m + i];
+            uint64_t W    = RootScalePows[index][m + i];
             for (long j = j1; j <= j2; j++) {
 
                 uint64_t T = a[j + t];
@@ -830,151 +910,164 @@ Context::origin_qiNTTAndEqual_withMont(uint64_t *a, long index)
                 a[j + t]             = a[j] < V ? a[j] + q - V : a[j] - V;
                 a[j] += V;
                 if (a[j] > q) a[j] -= q;
-                //				if(a[j] >= qd) a[j] -= qd;
-                //				uint64_t T = a[j + t];
-                //				unsigned __int128 U =
-                // static_cast<unsigned __int128>(T) * W;
-                // uint64_t Q = static_cast<uint64_t>(U >> 64);
-                // T *= w; 				uint64_t T1 = Q * q;
-                // T -= T1; 				a[j + t] = a[j] + qd -
-                // T; a[j] += T;
             }
         }
     }
-    //	for(long i = 0; i < N; i++) {
-    //		if(a[i] >= qd) a[i] -= qd;
-    //		if(a[i] >= q) a[i] -= q;
-    //	}
-}
-
-void
-Context::ref_qiNTTAndEqual(uint64_t *a, long index)
-{
-    long t     = N;
-    long logt1 = logN + 1;
-    uint64_t q = qVec[index];
-    //	uint64_t qd = qdVec[index];
-    uint64_t qInv = qInvVec[index];
-#ifdef CONFIG_FHE_EXT
-    set_mod(q, qInv);
-#endif
-    for (long m = 1; m < N; m <<= 1) {
-        t >>= 1;
-        logt1 -= 1;
-        for (long i = 0; i < m; i++) {
-            long j1    = i << logt1;
-            long j2    = j1 + t - 1;
-            uint64_t W = qRootPows[index][m + i];
-            //			uint64_t W = qRootScalePowsOverq[index][m + i];
-            //			uint64_t w = qRootPows[index][m + i];
-            for (long j = j1; j <= j2; j++) {
-
-                uint64_t T = a[j + t];
-
-                // Montgomeny ModMul : V = REDC(x = T, y = W, p = q, p' = qInv)
-                // CT butterfly:
-                // a[j]   = a[j] + (a[j+t] * W) mod q
-                // a[j+t] = a[j] - (a[j+t] * W) mod q
-                // unsigned __int128 U = static_cast<unsigned __int128>(T) * W;
-                // uint64_t U0 = static_cast<uint64_t>(U);
-                // uint64_t U1 = static_cast<uint64_t>(U >> 64);
-                // uint64_t Q = U0 * qInv;
-                // unsigned __int128 Hx = static_cast<unsigned __int128>(Q) *
-                // q; uint64_t H = static_cast<uint64_t>(Hx >> 64); uint64_t V
-                // = U1 < H ? U1 + q - H : U1 - H;
-                __uint128_t V = (static_cast<__uint128_t>(T) * W) % q;
-
-                a[j + t] = a[j] < V ? a[j] + q - V : a[j] - V;
-                a[j] += V;
-                if (a[j] > q) a[j] -= q;
-                //				if(a[j] >= qd) a[j] -= qd;
-                //				uint64_t T = a[j + t];
-                //				unsigned __int128 U =
-                // static_cast<unsigned __int128>(T) * W;
-                // uint64_t Q = static_cast<uint64_t>(U >> 64);
-                // T *= w; 				uint64_t T1 = Q * q;
-                // T -= T1; 				a[j + t] = a[j] + qd -
-                // T; a[j] += T;
-            }
-        }
-    }
-    //	for(long i = 0; i < N; i++) {
-    //		if(a[i] >= qd) a[i] -= qd;
-    //		if(a[i] >= q) a[i] -= q;
-    //	}
 }
 
 void
 Context::qiNTTAndEqual(uint64_t *a, long index)
 {
-  // origin_qiNTTAndEqual_withBar(a, index);
-  origin_qiNTTAndEqual_withMont(a, index);
-#ifdef CONFIG_TEST_BASELINE
-  // origin_qiNTTAndEqual_withMont(a, index);
-  // origin_qiNTTAndEqual_withBar(a, index);
-  // step4_qiNTTAndEqual_withBar(a, index);
-  step4_qiNTTAndEqual_withMont(a, index);
+#if defined (CONFIG_NTT_BAR)
+  #if defined (CONFIG_NTT_OP_NONE)
+    #ifdef CONFIG_EN_STEP4_NTT
+    step4_qiNTTAndEqual_withBar(a, index);
+    #else
+    origin_qiNTTAndEqual_withBar(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_SO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    mt_rvv_step4_qiNTTAndEqual_withBar(a, index);
+    #else
+    rvv_ori_qiNTTAndEqual_withBar(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_HO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    ext_step4_qiNTTAndEqual_withBar(a, index);
+    #else
+    ext_qiNTTAndEqual_withBar(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_CO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    mt_rvv_ext_step4_qiNTTAndEqual_withBar(a, index);
+    #else
+    rvv_ext_ori_qiNTTAndEqual_withBar(a, index);
+    #endif
+  #else
+    #error "CONFIG_NTT_OP_ should have been defined"
+  #endif
+#elif defined (CONFIG_NTT_MONT)
+  #if defined (CONFIG_NTT_OP_NONE)
+    #ifdef CONFIG_EN_STEP4_NTT
+    step4_qiNTTAndEqual_withMont(a, index);
+    #else
+    origin_qiNTTAndEqual_withMont(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_SO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    mt_rvv_step4_qiNTTAndEqual_withMont(a, index);
+    #else
+    rvv_ori_qiNTTAndEqual_withMont(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_HO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    ext_step4_qiNTTAndEqual_withMont(a, index);
+    #else
+    ext_qiNTTAndEqual_withMont(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_CO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    mt_rvv_ext_step4_qiNTTAndEqual_withMont(a, index);
+    #else
+    rvv_ext_ori_qiNTTAndEqual_withMont(a, index);
+    #endif
+  #else
+    #error "CONFIG_NTT_OP_ should have been defined"
+  #endif
 #else
-  // rvv_ext_ori_qiNTTAndEqual_withMont(a, index);
-  // rvv_ext_ori_qiNTTAndEqual_withBar(a, index);
-  // rvv_ext_step4_qiNTTAndEqual_withMont(a, index);
-  // rvv_ext_step4_qiNTTAndEqual_withBar(a, index);
+  #error "MulMod Algo. in NTT should have been defined"
 #endif
 }
 
 void
 Context::piNTTAndEqual(uint64_t *a, long index)
 {
-    long t      = N;
-    long logt1  = logN + 1;
-    uint64_t pi = pVec[index];
-    //	uint64_t pd = pdVec[index];
-    uint64_t pr   = prVec[index];
-    uint64_t k    = pTwok[index];
-    uint64_t pInv = pInvVec[index];
-    for (long m = 1; m < N; m <<= 1) {
-        t >>= 1;
-        logt1 -= 1;
-        for (long i = 0; i < m; i++) {
-            long j1    = i << logt1;
-            long j2    = j1 + t - 1;
-            uint64_t W = pRootScalePows[index][m + i];
-            //			uint64_t W = pRootScalePowsOverp[index][m + i];
-            //			uint64_t w = pRootPows[index][m + i];
-            for (long j = j1; j <= j2; j++) {
-
-                uint64_t T = a[j + t];
-#ifdef CONFIG_NTT_BARRETT
-                uint64_t V;
-                mulModBarrett(V, T, W, pi, pr, k);
+#if defined (CONFIG_NTT_BAR)
+  #if defined (CONFIG_NTT_OP_NONE)
+    #ifdef CONFIG_EN_STEP4_NTT
+    step4_piNTTAndEqual_withBar(a, index);
+    #else
+    origin_piNTTAndEqual_withBar(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_SO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    mt_rvv_step4_piNTTAndEqual_withBar(a, index);
+    #else
+    rvv_ori_piNTTAndEqual_withBar(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_HO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    ext_step4_piNTTAndEqual_withBar(a, index);
+    #else
+    ext_piNTTAndEqual_withBar(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_CO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    mt_rvv_ext_step4_piNTTAndEqual_withBar(a, index);
+    #else
+    rvv_ext_ori_piNTTAndEqual_withBar(a, index);
+    #endif
+  #else
+    #error "CONFIG_NTT_OP_ should have been defined"
+  #endif
+#elif defined (CONFIG_NTT_MONT)
+  #if defined (CONFIG_NTT_OP_NONE)
+    #ifdef CONFIG_EN_STEP4_NTT
+    step4_piNTTAndEqual_withMont(a, index);
+    #else
+    origin_piNTTAndEqual_withMont(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_SO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    mt_rvv_step4_piNTTAndEqual_withMont(a, index);
+    #else
+    rvv_ori_piNTTAndEqual_withMont(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_HO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    ext_step4_piNTTAndEqual_withMont(a, index);
+    #else
+    ext_piNTTAndEqual_withMont(a, index);
+    #endif
+  #elif defined (CONFIG_NTT_OP_CO)
+    #ifdef CONFIG_EN_STEP4_NTT
+    mt_rvv_ext_step4_piNTTAndEqual_withMont(a, index);
+    #else
+    rvv_ext_ori_piNTTAndEqual_withMont(a, index);
+    #endif
+  #else
+    #error "CONFIG_NTT_OP_ should have been defined"
+  #endif
 #else
-                unsigned __int128 U  = static_cast<unsigned __int128>(T) * W;
-                uint64_t U0          = static_cast<uint64_t>(U);
-                uint64_t U1          = static_cast<uint64_t>(U >> 64);
-                uint64_t Q           = U0 * pInv;
-                unsigned __int128 Hx = static_cast<unsigned __int128>(Q) * pi;
-                uint64_t H           = static_cast<uint64_t>(Hx >> 64);
-                uint64_t V           = U1 < H ? U1 + pi - H : U1 - H;
+  #error "MulMod Algo. in NTT should have been defined"
 #endif
-                a[j + t] = a[j] < V ? a[j] + pi - V : a[j] - V;
-                a[j] += V;
-                if (a[j] > pi) a[j] -= pi;
-
-                //				if(a[j] >= pd) a[j] -= pd;
-                //				uint64_t T = a[j + t];
-                //				unsigned __int128 U =
-                // static_cast<unsigned __int128>(T) * W;
-                // uint64_t Q = static_cast<uint64_t>(U >> 64);
-                // T *= w; 				uint64_t T1 = Q * pi;
-                // T -= T1; 				a[j + t] = a[j] + pd -
-                // T; a[j] += T;
-            }
-        }
-    }
-    //	for(long i = 0; i < N; i++) {
-    //		if(a[i] >= pd) a[i] -= pd;
-    //		if(a[i] >= p) a[i] -= pi;
-    //	}
+    // long t      = N;
+    // long logt1  = logN + 1;
+    // uint64_t pi = pVec[index];
+    // uint64_t pInv = pInvVec[index];
+    // for (long m = 1; m < N; m <<= 1) {
+    //     t >>= 1;
+    //     logt1 -= 1;
+    //     for (long i = 0; i < m; i++) {
+    //         long j1    = i << logt1;
+    //         long j2    = j1 + t - 1;
+    //         uint64_t W = pRootScalePows[index][m + i];
+    //         for (long j = j1; j <= j2; j++) {
+    //
+    //             uint64_t T = a[j + t];
+    //             unsigned __int128 U  = static_cast<unsigned __int128>(T) * W;
+    //             uint64_t U0          = static_cast<uint64_t>(U);
+    //             uint64_t U1          = static_cast<uint64_t>(U >> 64);
+    //             uint64_t Q           = U0 * pInv;
+    //             unsigned __int128 Hx = static_cast<unsigned __int128>(Q) * pi;
+    //             uint64_t H           = static_cast<uint64_t>(Hx >> 64);
+    //             uint64_t V           = U1 < H ? U1 + pi - H : U1 - H;
+    //             a[j + t] = a[j] < V ? a[j] + pi - V : a[j] - V;
+    //             a[j] += V;
+    //             if (a[j] > pi) a[j] -= pi;
+    //         }
+    //     }
+    // }
 }
 
 void
@@ -1043,7 +1136,6 @@ Context::qiINTTAndEqual(uint64_t *a, long index)
         t <<= 1;
     }
 
-#ifndef CONFIG_NTT_BARRETT
     uint64_t NScale = NScaleInvModq[index];
     for (long i = 0; i < N; i++) {
         // a[i] = REDC(a[i], inv(N)*r**2)
@@ -1057,7 +1149,6 @@ Context::qiINTTAndEqual(uint64_t *a, long index)
         uint64_t H           = static_cast<uint64_t>(Hx >> 64);
         a[i]                 = (U1 < H) ? U1 + q - H : U1 - H;
     }
-#endif
 }
 
 void
@@ -1100,7 +1191,6 @@ Context::piINTTAndEqual(uint64_t *a, long index)
         t <<= 1;
     }
 
-#ifndef CONFIG_NTT_BARRETT
     uint64_t NScale = NScaleInvModp[index];
     for (long i = 0; i < N; i++) {
         uint64_t T           = (a[i] < pi) ? a[i] : a[i] - pi;
@@ -1112,7 +1202,6 @@ Context::piINTTAndEqual(uint64_t *a, long index)
         uint64_t H           = static_cast<uint64_t>(Hx >> 64);
         a[i]                 = (U1 < H) ? U1 + pi - H : U1 - H;
     }
-#endif
 }
 
 void
@@ -1552,6 +1641,21 @@ Context::qiMul(uint64_t *res, uint64_t *a, uint64_t *b, long index)
         mulModBarrett(res[i], a[i], b[i], qVec[index], qrVec[index],
                       qTwok[index]);
     }
+// #if defined CONFIG_NTT_OP_NONE || CONFIG_NTT_OP_HO
+//     for (long i = 0; i < N; ++i) {
+//         mulModBarrett(res[i], a[i], b[i], qVec[index], qrVec[index],
+//                       qTwok[index]);
+//     }
+// #elif defined CONFIG_NTT_OP_SO || CONFIG_NTT_OP_CO
+//     long vl = vsetvli(N, 64, 4);
+//     assert(N % vl == 0);
+//     for (long i = 0; i < N / vl; ++i) {
+//         mulModBarrett(res[i], a[i], b[i], qVec[index], qrVec[index],
+//                       qTwok[index]);
+//     }
+// #else
+//   #error "CONFIG_NTT_OP_ should have been defined"
+// #endif
 }
 
 void
@@ -2025,23 +2129,6 @@ Context::sampleGauss(uint64_t *res, long l, long k)
 void
 Context::sampleZO(uint64_t *res, long s, long l, long k)
 {
-#if defined CONFIG_LIB_SO
-    // TODO: finish it
-    assert(0);    
-#elif defined CONFIG_LIB_HO
-    for (long i = 0; i < N; ++i) {
-        long zo = (rand() % 2) == 0 ? 0 : (rand() % 2) ? 1 : -1;
-        for (long j = 0; j < l; ++j) {
-            uint64_t *resj = res + (j << logN);
-            resj[i]        = modbyq(zo, qVec[j]);
-        }
-        for (long j = 0; j < k; ++j) {
-            uint64_t *resj = res + ((j + l) << logN);
-            resj[i]        = modbyq(zo, pVec[j]);
-        }
-    }
-#elif defined CONFIG_LIB_MAX
-#else
     for (long i = 0; i < N; ++i) {
         long zo = (rand() % 2) == 0 ? 0 : (rand() % 2) ? 1 : -1;
         for (long j = 0; j < l; ++j) {
@@ -2053,7 +2140,6 @@ Context::sampleZO(uint64_t *res, long s, long l, long k)
             resj[i]        = zo >= 0 ? zo : pVec[j] + zo;
         }
     }
-#endif
 }
 
 void

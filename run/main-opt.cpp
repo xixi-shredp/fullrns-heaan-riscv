@@ -25,22 +25,28 @@ main(int argc, const char *argv[])
     int opt;
     int optind;
     struct test_conf_t {
-        bool need_check = false;
-        bool test_sota  = false;
-        long logN       = -1;
-        long logQ       = 30;
+        bool   need_check = false;
+        bool   en_case    = false;
+        long   logN       = -1;
+        long   logQ       = 30;
         string case_name;
-        long nr_thread = 1;
+        long   case_q_val = 0;
+        long   nr_thread  = 1;
     } global_conf;
 
     decltype(TestScheme::testEncodeBatch) *case_ptr;
     int test_num = -1;
 
     struct option longopts[] = {
-        {"check", 0, NULL, 'c'}, {"sota", 0, NULL, 's'},
-        {"case", 1, NULL, 'k'},  {"logN", 1, NULL, 'N'},
-        {"logQ", 1, NULL, 'Q'},  {"nr_thread", 1, NULL, 't'}};
-    const char *optstring = "csk:N:Q:t:";
+        {"check"    , 0, NULL, 'c'}, 
+        {"en_case"  , 0, NULL, 'e'},
+        {"case"     , 1, NULL, 'k'}, 
+        {"q_val"    , 1, NULL, 'q'},
+        {"logN"     , 1, NULL, 'N'},
+        {"logQ"     , 1, NULL, 'Q'},
+        {"nr_thread", 1, NULL, 't'}
+    };
+    const char *optstring = "cek:q:N:Q:t:";
 
     while ((opt = getopt_long(argc, (char *const *)argv, optstring, longopts,
                               &optind)) != -1)
@@ -50,12 +56,16 @@ main(int argc, const char *argv[])
                 global_conf.need_check = true;
                 break;
             }
-            case 's': {
-                global_conf.test_sota = true;
+            case 'e': {
+                global_conf.en_case = true;
                 break;
             }
             case 'k': {
                 global_conf.case_name = string(optarg);
+                break;
+            }
+            case 'q': {
+                global_conf.case_q_val = strtol(optarg, NULL, 10);
                 break;
             }
             case 'N': {
@@ -84,14 +94,15 @@ main(int argc, const char *argv[])
          << "logN: " << global_conf.logN << endl
          << "logQ: " << global_conf.logQ << endl;
 
-    if (global_conf.test_sota) {
-        TestScheme test;
-        test.testSOTA(global_conf.logN, global_conf.logQ);
-    } else {
+    if (global_conf.en_case) {
         void testCase(bool need_check, long logN, long logp, string case_name,
-                      long nr_thread);
+                      long q_val);
         testCase(global_conf.need_check, global_conf.logN, global_conf.logQ,
-                 global_conf.case_name, global_conf.nr_thread);
+                 global_conf.case_name, global_conf.case_q_val);
+    } else {
+        TestScheme test;
+        test.myTest(global_conf.logN, global_conf.logQ);
+        // test.testModOP(global_conf.logN, global_conf.logQ);
     }
 
     return 0;

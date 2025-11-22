@@ -4,12 +4,11 @@
 
 #ifdef CONFIG_FHE_EXT
 void
-Context::ext_qiNTTAndEqual_withBar(uint64_t *a, long index)
+Context::ext_NTTAndEqual_withBar(uint64_t *a, uint64_t q, uint64_t qInv, 
+                                 uint64_t* qRootScalePows, uint64_t* qRootPows, uint64_t* qNTTBarPres)
 {
     long t        = N;
     long logt1    = logN + 1;
-    uint64_t q    = qVec[index];
-    uint64_t qInv = qInvVec[index];
     set_mod(q, qInv);
 
     for (long m = 1; m < N; m <<= 1) {
@@ -18,9 +17,9 @@ Context::ext_qiNTTAndEqual_withBar(uint64_t *a, long index)
         for (long i = 0; i < m; i++) {
             long j1       = i << logt1;
             long j2       = j1 + t - 1;
-            uint64_t W    = qRootScalePows[index][m + i];
-            uint64_t Wori = qRootPows[index][m + i];
-            uint64_t R    = nttBarPres[index][m + i];
+            uint64_t W    = qRootScalePows[m + i];
+            uint64_t Wori = qRootPows[m + i];
+            uint64_t R    = qNTTBarPres[m + i];
     #ifdef CONFIG_FHE_EXT_SCALAR_SCHEDULE
             /// Way 1: 2-butterfly pal
             // if (t % 2 == 0) {
@@ -292,12 +291,10 @@ Context::ext_qiNTTAndEqual_withBar(uint64_t *a, long index)
 }
 
 void
-Context::ext_qiNTTAndEqual_withMont(uint64_t *a, long index)
+Context::ext_NTTAndEqual_withMont(uint64_t *a, uint64_t q, uint64_t qInv, uint64_t* RootScalePows, uint64_t* RootPows)
 {
     long t        = N;
     long logt1    = logN + 1;
-    uint64_t q    = qVec[index];
-    uint64_t qInv = qInvVec[index];
     set_mod(q, qInv);
     for (long m = 1; m < N; m <<= 1) {
         t >>= 1;
@@ -305,8 +302,8 @@ Context::ext_qiNTTAndEqual_withMont(uint64_t *a, long index)
         for (long i = 0; i < m; i++) {
             long j1       = i << logt1;
             long j2       = j1 + t - 1;
-            uint64_t W    = qRootScalePows[index][m + i];
-            uint64_t Wori = qRootPows[index][m + i];
+            uint64_t W    = RootScalePows[m + i];
+            uint64_t Wori = RootPows[m + i];
     #ifdef CONFIG_FHE_EXT_SCALAR_SCHEDULE
             /// Way 1: 2-butterfly pal
             // if (t % 2 == 0) {
